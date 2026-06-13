@@ -1,2 +1,18 @@
 dks_env/
 dks_env
+
+# Compiled C/C++ binaries (don't commit build output)
+a.out
+*.o
+# extensionless Mach-O scratch builds from the C++ experiments
+baseline
+baselineAlg
+bslneCplus
+bslneCpluserror
+bslneCpluserrorseeds
+ourAlg
+ourAlgerror
+ourAlgerrorSeeds
+experiment
+# ...but keep the one archived orphan binary we intentionally commit
+!archive/cpp-scratch/bin/experiment
