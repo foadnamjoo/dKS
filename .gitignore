@@ -16,3 +16,14 @@ ourAlgerrorSeeds
 experiment
 # ...but keep the one archived orphan binary we intentionally commit
 !archive/cpp-scratch/bin/experiment
+
+# Build artifacts (C++ binaries, Python build dirs)
+/dks
+test_dks
+example
+build/
+dist/
+*.so
+*.egg-info/
+__pycache__/
+.venv/
