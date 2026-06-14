@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Efficient and Stable Multi-Dimensional Kolmogorov–Smirnov Distance</title>
+<meta name="description" content="dKS: an integral probability metric extending the Kolmogorov–Smirnov distance to multiple dimensions, with near-linear computation in d ≤ 4 and a finite-sample two-sample test.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Efficient and Stable Multi-Dimensional Kolmogorov–Smirnov Distance">
+<meta property="og:description" content="An integral probability metric extending Kolmogorov–Smirnov to multiple dimensions — stable, near-linear in d ≤ 4, with a finite-sample two-sample test.">
+<meta property="og:image" content="assets/dks_concept.png">
+<meta name="theme-color" content="#4338ca">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --accent:#4338ca;
+    --accent-dark:#3730a3;
+    --accent-soft:#eef2ff;
+    --ink:#15161d;
+    --body:#3a3b45;
+    --muted:#6b7280;
+    --line:#e7e9f0;
+    --bg:#ffffff;
+    --bg-alt:#f7f8fb;
+    --code-bg:#0f172a;
+    --radius:16px;
+    --maxw:860px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    font-size:18px;line-height:1.7;color:var(--body);background:var(--bg);
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  a{color:var(--accent)}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 1.5rem}
+
+  /* ---------- nav ---------- */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);
+       backdrop-filter:saturate(180%) blur(10px);-webkit-backdrop-filter:saturate(180%) blur(10px);
+       border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:var(--maxw);margin:0 auto;padding:.7rem 1.5rem;display:flex;
+             align-items:center;justify-content:space-between;gap:1rem}
+  .brand{font-weight:800;letter-spacing:-.02em;color:var(--ink);text-decoration:none;font-size:1.1rem}
+  .brand span{color:var(--accent)}
+  .nav-links{display:flex;gap:1.3rem;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  .nav-links::-webkit-scrollbar{display:none}
+  .nav-links a{color:var(--muted);text-decoration:none;font-size:.92rem;font-weight:500;flex:0 0 auto}
+  .nav-links a:hover{color:var(--accent)}
+
+  /* ---------- hero ---------- */
+  .hero{text-align:center;padding:4.5rem 0 2.75rem}
+  .hero h1{font-size:clamp(1.95rem,4.6vw,2.95rem);line-height:1.16;letter-spacing:-.022em;
+           color:var(--ink);font-weight:800;margin:0 auto 1.4rem;max-width:18ch}
+  .authors{font-size:1.12rem;color:var(--ink);margin:.4rem 0;font-weight:500}
+  .authors sup{color:var(--accent);font-weight:700;font-size:.7em}
+  .affil{color:var(--muted);font-size:.95rem;margin:.4rem auto 0;max-width:50ch}
+  .affil sup{color:var(--accent)}
+
+  .actions{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center;margin-top:2.1rem}
+  .btn{display:inline-flex;align-items:center;gap:.55rem;padding:.7rem 1.3rem;border-radius:999px;
+       font-weight:600;font-size:.97rem;text-decoration:none;border:1px solid transparent;
+       transition:transform .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease,border-color .15s ease}
+  .btn svg{width:18px;height:18px;flex:0 0 auto}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-dark);transform:translateY(-1px);box-shadow:0 8px 20px rgba(67,56,202,.28)}
+  .btn-ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px);box-shadow:0 8px 18px rgba(16,16,29,.07)}
+
+  /* ---------- sections ---------- */
+  section{scroll-margin-top:84px}
+  .section{padding:3rem 0;border-top:1px solid var(--line)}
+  .eyebrow{text-transform:uppercase;letter-spacing:.09em;font-size:.76rem;font-weight:700;
+           color:var(--accent);margin:0 0 .55rem}
+  .section h2{font-size:1.62rem;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:0 0 1.1rem}
+  .section p{margin:0 0 1.05rem}
+  .section p:last-child{margin-bottom:0}
+
+  .abstract{background:var(--bg-alt);border:1px solid var(--line);border-radius:var(--radius);
+            padding:1.8rem 2rem}
+  .abstract p{margin:0;font-size:1.03rem;color:var(--ink)}
+
+  /* ---------- figures ---------- */
+  figure{margin:1.6rem 0 0}
+  .fig{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:1rem;
+       box-shadow:0 10px 34px rgba(16,16,29,.055)}
+  .fig img{display:block;width:100%;height:auto;border-radius:9px}
+  .fig--center img{max-width:470px;margin:0 auto}
+  figcaption{color:var(--muted);font-size:.9rem;margin-top:.9rem;line-height:1.55}
+  figcaption b{color:var(--ink);font-weight:600}
+
+  /* ---------- contribution cards ---------- */
+  .cards{display:grid;gap:1rem;margin-top:.4rem}
+  .card{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:14px;padding:1.2rem 1.45rem;box-shadow:0 4px 14px rgba(16,16,29,.04);
+        transition:transform .15s ease,box-shadow .15s ease}
+  .card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(16,16,29,.09)}
+  .card h3{margin:0 0 .35rem;font-size:1.06rem;color:var(--ink);font-weight:700;letter-spacing:-.01em}
+  .card p{margin:0;font-size:.97rem;color:var(--body)}
+
+  /* ---------- code ---------- */
+  .lead-label{font-weight:600;color:var(--ink);margin:1.4rem 0 .4rem;font-size:.95rem}
+  .codeblock{position:relative;background:var(--code-bg);border-radius:12px;margin:.2rem 0 0;
+             overflow:hidden;box-shadow:0 12px 32px rgba(15,23,42,.18)}
+  .codeblock .lang{position:absolute;top:.6rem;right:.9rem;font-size:.7rem;letter-spacing:.06em;
+                   text-transform:uppercase;color:#94a3b8;font-weight:700}
+  .codeblock pre{margin:0;padding:1.3rem 1.45rem;overflow-x:auto}
+  .codeblock code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+                  font-size:.88rem;line-height:1.7;color:#e2e8f0;white-space:pre}
+  .codeblock .c{color:#7c8aa5}
+  .repo-note{margin-top:1.2rem;color:var(--body)}
+
+  .copy-btn{position:absolute;top:.6rem;right:.7rem;background:rgba(255,255,255,.08);color:#cbd5e1;
+            border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:.35rem .7rem;font:inherit;
+            font-size:.76rem;font-weight:600;cursor:pointer;display:inline-flex;gap:.4rem;align-items:center;
+            transition:background .15s ease,color .15s ease}
+  .copy-btn:hover{background:rgba(255,255,255,.18);color:#fff}
+  .copy-btn svg{width:14px;height:14px}
+
+  /* ---------- footer ---------- */
+  .footer{border-top:1px solid var(--line);margin-top:1rem;padding:2.6rem 0 3.2rem;text-align:center;
+          color:var(--muted);font-size:.9rem}
+  .footer .links{margin-top:.7rem;display:flex;gap:1.1rem;justify-content:center;flex-wrap:wrap}
+  .footer a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}
+  .footer a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:640px){
+    body{font-size:17px}
+    .hero{padding:3.25rem 0 2rem}
+    .actions{flex-direction:column}
+    .btn{width:100%;justify-content:center}
+    .abstract{padding:1.4rem 1.4rem}
+    .section{padding:2.4rem 0}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">d<span>KS</span></a>
+    <div class="nav-links">
+      <a href="#abstract">Abstract</a>
+      <a href="#idea">Idea</a>
+      <a href="#contributions">Contributions</a>
+      <a href="#results">Results</a>
+      <a href="#code">Code</a>
+      <a href="#cite">Cite</a>
+    </div>
+  </div>
+</nav>
+
+<a id="top"></a>
+<header class="hero wrap">
+  <h1>Efficient and Stable Multi-Dimensional Kolmogorov–Smirnov Distance</h1>
+  <p class="authors">
+    Peter Matthew Jacobs<sup>1</sup>, Foad Namjoo<sup>2</sup>, Jeff M. Phillips<sup>2</sup>
+  </p>
+  <p class="affil">
+    <sup>1</sup>University of Wisconsin–Madison &nbsp;&middot;&nbsp;
+    <sup>2</sup>Kahlert School of Computing, University of Utah
+  </p>
+
+  <div class="actions">
+    <a class="btn btn-primary" href="#" aria-label="Paper PDF">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+      Paper (PDF)
+    </a>
+    <a class="btn btn-ghost" href="https://github.com/foadnamjoo/dKS" aria-label="Code on GitHub">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.07 11.07 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.07.78 2.16 0 1.56-.01 2.82-.01 3.2 0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
+      Code
+    </a>
+    <a class="btn btn-ghost" href="#cite" aria-label="BibTeX citation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4a3 3 0 0 0-3 3v2a2 2 0 0 1-2 2 2 2 0 0 1 2 2v2a3 3 0 0 0 3 3"/><path d="M17 4a3 3 0 0 1 3 3v2a2 2 0 0 0 2 2 2 2 0 0 0-2 2v2a3 3 0 0 1-3 3"/></svg>
+      BibTeX
+    </a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="abstract" class="section">
+    <p class="eyebrow">Abstract</p>
+    <div class="abstract">
+      <p>We revisit extending the Kolmogorov–Smirnov distance between probability distributions to the multi-dimensional setting, and argue for the proper way to approach this generalization. Our formulation maximizes the difference over dominating orthogonal rectangular ranges (<i>d</i>-sided rectangles in ℝ<sup>d</sup>), and is an integral probability metric. We prove the distance between a distribution and a sample of it converges to 0 as the sample grows, and bound this rate. Up to this same error, the distance can be computed efficiently in four or fewer dimensions — near-linear in the sample size needed for that error — and we derive a δ-precision two-sample test. Finally, we show these metric and approximation properties fail for other popular variants.</p>
+    </div>
+  </section>
+
+  <section id="idea" class="section">
+    <p class="eyebrow">The idea</p>
+    <h2>One number for how far apart two distributions are</h2>
+    <p>dKS is the largest gap between the two distributions' multivariate CDFs over lower-orthant ("dominating") rectangles. Because it uses coordinate order rather than Euclidean distance, it's invariant to each axis's units (height vs weight, temperature vs pressure), unlike MMD or Wasserstein.</p>
+    <figure class="fig fig--center">
+      <img src="assets/dks_concept.png" alt="Two point sets on height–weight axes; a green dominating rectangle anchored at a point z measures the gap between the sets' empirical CDFs in that lower-orthant range.">
+      <figcaption>The dKS distance scans dominating rectangles (such as the shaded range anchored at <i>z</i>) and reports the largest discrepancy between the two samples' fractions of mass.</figcaption>
+    </figure>
+  </section>
+
+  <section id="contributions" class="section">
+    <p class="eyebrow">Key contributions</p>
+    <h2>What the paper establishes</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>An integral probability metric</h3>
+        <p>An integral probability metric, and a true metric (strong identity property).</p>
+      </div>
+      <div class="card">
+        <h3>Dimension-light sample complexity</h3>
+        <p>Sample complexity O((1/ε²)(d + log(1/δ))), independent of distribution complexity.</p>
+      </div>
+      <div class="card">
+        <h3>Near-linear-time computation</h3>
+        <p>Near-linear-time computation for d = 1,2,3,4 (e.g. O(n log n) in 2D); and evidence d &gt; 4 can't be near-linear without breaking the Max-Weight-k-Clique conjecture.</p>
+      </div>
+      <div class="card">
+        <h3>A finite-sample two-sample test</h3>
+        <p>A δ-precision two-sample test with finite-sample validity — a guaranteed false-positive bound, not asymptotic or Monte-Carlo.</p>
+      </div>
+      <div class="card">
+        <h3>Provably stable</h3>
+        <p>Stable: the popular "quad-KS" variant can change drastically from one data point and has no sample-complexity bound; dKS does.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="results" class="section">
+    <p class="eyebrow">Results</p>
+    <h2>Fast to compute, accurate at the same rate</h2>
+    <figure class="fig">
+      <img src="assets/dks_results.png" alt="Left: runtime versus number of samples — the exact baseline grows quadratically while the proposed algorithm stays near-linear. Right: observed error versus number of samples — both methods converge to zero at the same rate.">
+      <figcaption><b>Runtime grows quadratically for the exact baseline but near-linearly for the proposed algorithm, while both converge in error at the same rate; behavior is the same for uniform and Gaussian data.</b></figcaption>
+    </figure>
+  </section>
+
+  <section id="code" class="section">
+    <p class="eyebrow">Get started</p>
+    <h2>A header-only library with Python bindings</h2>
+
+    <p class="lead-label">C++</p>
+    <div class="codeblock">
+      <span class="lang">C++</span>
+      <pre><code>#include &lt;dks/dks.hpp&gt;
+std::vector&lt;dks::Point&gt; P = {{0.1,0.2},{0.5,0.7}};
+std::vector&lt;dks::Point&gt; Q = {{0.2,0.2},{0.6,0.8}};
+double d = dks::approx(P, Q);   <span class="c">// fast,  O(n log n)</span>
+double e = dks::exact(P, Q);    <span class="c">// exact, O(n^2)</span></code></pre>
+    </div>
+
+    <p class="lead-label">Python</p>
+    <div class="codeblock">
+      <span class="lang">Python</span>
+      <pre><code>import dks, numpy as np
+P, Q = np.random.rand(1000,2), np.random.rand(1000,2)
+print(dks.exact(P, Q), dks.approx(P, Q))</code></pre>
+    </div>
+
+    <p class="repo-note">The full library, command-line tool, and reproducible experiments are available at the <a href="https://github.com/foadnamjoo/dKS">GitHub repository</a>.</p>
+  </section>
+
+  <section id="cite" class="section">
+    <p class="eyebrow">Citation</p>
+    <h2>Cite this work</h2>
+    <div class="codeblock">
+      <button class="copy-btn" data-copy="#bibtex" aria-label="Copy BibTeX">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span class="label">Copy</span>
+      </button>
+      <pre><code id="bibtex">@article{jacobs2026dks,
+  title   = {Efficient and Stable Multi-Dimensional Kolmogorov--Smirnov Distance},
+  author  = {Jacobs, Peter Matthew and Namjoo, Foad and Phillips, Jeff M.},
+  year    = {2026}
+}</code></pre>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>Authors listed alphabetically.</p>
+    <div class="links">
+      <a href="#">Paper (PDF)</a>
+      <a href="https://github.com/foadnamjoo/dKS">Code</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var el = document.querySelector(btn.getAttribute('data-copy'));
+      if(!el) return;
+      navigator.clipboard.writeText(el.innerText.trim()).then(function(){
+        var label = btn.querySelector('.label');
+        if(!label) return;
+        var prev = label.textContent;
+        label.textContent = 'Copied';
+        setTimeout(function(){ label.textContent = prev; }, 1500);
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
