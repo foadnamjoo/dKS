@@ -27,3 +27,6 @@ dist/
 *.egg-info/
 __pycache__/
 .venv/
+
+# Generated experiment figures
+experiments/*.pdf
