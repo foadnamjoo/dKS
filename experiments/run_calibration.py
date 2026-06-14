@@ -1,73 +1,83 @@
-"""Null-calibration experiment for dKS (Jeff's plot).
+"""Null-CALIBRATION experiment for dKS (item 5).
 
-Under H0 (P and Q identically distributed), draw many independent uniform
-samples, compute the dKS statistic each time, and compare the empirical tail
-probability  P(D_n >= eps)  against the theoretical bound  exp(-n * eps^2 / 4).
+Under H0 (P and Q identically distributed), draw Z independent fresh uniform
+redraws and record the Sample-Sketch-Solve dKS statistic (dks.approx) each time.
+These Z null values let plots.py compare the empirical tail
 
-If the empirical curve sits at or below the theoretical bound, the calibrated
-test controls its size -- directly answering the reviewer concern that the
-C_d constants might make the test miscalibrated / overly conservative. The gap
-between the two curves visualizes exactly how conservative it is.
+    P_hat(dKS >= eps)
 
-Run:  python experiments/run_calibration.py
-      python experiments/run_calibration.py --n 200 --reps 2000
+against the analytic bound exp(-n * eps^2 / 4).  If the empirical tail sits
+below and close to the bound, the clean threshold tau = 2*sqrt(ln(1/delta)/n)
+used by the SSS-dKS direct test is the right inversion (vs the Section 6.2 form
+with an extra ln(2n)) -- i.e. this experiment settles which direct constant is
+correct, and shows the test controls its size without being wildly conservative.
+
+We use n large (default 10000) so the tail bound is in its meaningful regime.
+
+Quick verification run:
+    python experiments/run_calibration.py --n 10000 --Z 1000
 """
 import argparse
+import csv
+import os
+import sys
+import time
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 
-import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generators as gen
 import methods as M
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 
-def run(n, reps, seed, exact, outfile):
-    rng = np.random.default_rng(seed)
 
-    stats = np.empty(reps)
-    for i in range(reps):
-        P = gen.uniform(n, rng)        # P and Q identically distributed: H0
-        Q = gen.uniform(n, rng)
-        stats[i] = M.dks_stat(P, Q, exact=exact)
-    stats.sort()
+def run(n, Z, eps, seed, outfile):
+    seedseq = np.random.SeedSequence(seed)
+    vals = np.empty(Z)
+    t0 = time.time()
+    for i in range(Z):
+        rng = np.random.default_rng(seedseq.spawn(1)[0])
+        P = gen.uniform_square(n, rng)      # H0: P and Q identically distributed
+        Q = gen.uniform_square(n, rng)
+        vals[i] = M.sss_stat(P, Q, eps)     # statistic = dks.approx (SSS-dKS)
+        if (i + 1) % max(1, Z // 10) == 0:
+            print(f"  {i+1}/{Z}  [{time.time()-t0:.0f}s]")
 
-    # empirical exceedance P(D_n >= eps) over a grid of eps
-    eps_grid = np.linspace(stats.min() * 0.9, stats.max() * 1.05, 300)
-    emp = np.array([(stats >= e).mean() for e in eps_grid])
-    bound = np.exp(-n * eps_grid**2 / 4.0)          # theoretical tail bound
+    os.makedirs(os.path.dirname(outfile), exist_ok=True)
+    with open(outfile, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["trial", "n", "dks_approx"])
+        for i, v in enumerate(vals):
+            w.writerow([i, n, float(v)])
 
-    fig, ax = plt.subplots(figsize=(6, 4.2))
-    ax.plot(eps_grid, emp, color="#1f77b4", lw=2,
-            label=f"empirical  $P(D_n \\geq \\varepsilon)$  ({reps} reps)")
-    ax.plot(eps_grid, np.clip(bound, 0, 1), color="#d62728", ls="--", lw=2,
-            label=r"theoretical bound  $e^{-n\varepsilon^2/4}$")
-    ax.set_xlabel(r"threshold $\varepsilon$")
-    ax.set_ylabel("tail probability")
-    ax.set_title(f"dKS null calibration  ($d=2$, $n={n}$, H$_0$: $P=Q$ uniform)")
-    ax.set_yscale("log")
-    ax.set_ylim(1.0 / reps / 2, 1.5)
-    ax.grid(alpha=0.3, which="both")
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(outfile, bbox_inches="tight")
-    print(f"n={n} reps={reps}  max empirical stat={stats.max():.4f}  "
-          f"median={np.median(stats):.4f}")
-    print(f"saved {outfile}")
+    # quick console diagnostic: empirical tail vs bound at a few thresholds
+    print(f"\nn={n}  Z={Z}  statistic=SSS-dKS (dks.approx)")
+    print(f"  null dKS: min={vals.min():.4f}  median={np.median(vals):.4f}  "
+          f"mean={vals.mean():.4f}  max={vals.max():.4f}")
+    print(f"  {'eps':>8}{'P_hat(>=eps)':>16}{'exp(-n eps^2/4)':>18}{'below?':>9}")
+    qs = np.quantile(vals, [0.5, 0.9, 0.95, 0.99])
+    for e in qs:
+        emp = float((vals >= e).mean())
+        bound = float(np.exp(-n * e * e / 4.0))
+        print(f"  {e:>8.4f}{emp:>16.4f}{bound:>18.4f}{str(emp <= bound):>9}")
+    print(f"saved {outfile}  ({Z} null values)")
+    return vals
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=200)
-    ap.add_argument("--reps", type=int, default=1000)
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--n", type=int, default=10000, help="sample size per draw")
+    ap.add_argument("--Z", type=int, default=1000, help="number of null redraws")
+    ap.add_argument("--eps", type=float, default=-1.0,
+                    help="SSS grid resolution; <=0 uses the 2*sqrt(n) grid")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="calibration.pdf")
-    ap.add_argument("--approx", action="store_true")
+    ap.add_argument("--out", default=os.path.join(HERE, "results", "calibration.csv"))
     args = ap.parse_args()
-    run(args.n, args.reps, args.seed, exact=not args.approx, outfile=args.out)
+
+    print(f"calibration: n={args.n} Z={args.Z} eps={args.eps} seed={args.seed}")
+    run(args.n, args.Z, args.eps, args.seed, args.out)
 
 
 if __name__ == "__main__":

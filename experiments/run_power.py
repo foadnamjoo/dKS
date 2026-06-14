@@ -1,107 +1,136 @@
-"""Power experiment (empirical rejection rate) for the dKS two-sample test.
+"""Huber two-sample POWER experiment (item 3).
 
-For each contamination level alpha and sample size n, draw many independent
-(P, Q) pairs -- P clean uniform, Q Huber-contaminated at alpha -- and record how
-often each method rejects H0. alpha = 0 is the null (rejection rate should sit
-near the nominal level = a size check); alpha > 0 is power.
+P = Uniform([-1, 1]^2) (clean);  Q_alpha = Huber mixture with a central Gaussian
+bump at contamination level alpha.  alpha = 0 is the null (rejection rate ~ delta,
+a size check); alpha > 0 is power.
 
-Methods compared (one curve each, matching the mockup):
-  * Our Method        -- direct analytic threshold (B-free)
-  * B-Bootstrap Exact -- permutation test
+For each (n, alpha) we run Z independent trials, each with a fresh per-trial seed,
+and three procedures:
 
-Output: one panel per alpha, x = n, y = empirical rejection rate, saved as a PDF.
+  * exact-sample dKS  -- permutation_test(stat_fn = exact_stat)        [reference]
+  * SSS-dKS           -- permutation_test(stat_fn = sss_stat), same B  [the main one]
+  * SSS-dKS direct    -- B-free threshold test (PENDING Peter's C2)    [the cheap one]
 
-Run:  python experiments/run_power.py            # quick demo settings
-      python experiments/run_power.py --full     # full settings from the plan
+We compare ONLY exact-sample dKS vs Sample-Sketch-Solve dKS (+ the direct
+variant) -- no MMD / energy / Bickel: the point is the algorithmic framing
+(same statistic, exact vs sketched), not a kernel-vs-dKS bake-off.
+
+Per (method, n, alpha) we record rejection_rate = mean(reject) and
+avg_runtime = mean(elapsed), and write results/power.csv.
+
+Quick verification run (small defaults, a few minutes):
+    python experiments/run_power.py
+Scale up for the paper:
+    python experiments/run_power.py --n 50 100 200 400 800 --B 300 --Z 300
 """
 import argparse
+import csv
+import os
+import sys
 import time
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 
-import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generators as gen
 import methods as M
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+METHOD_ORDER = [M.METHOD_EXACT, M.METHOD_SSS, M.METHOD_SSS_DIRECT]
 
-def run(alphas, ns, trials, B, delta, seed, exact, outfile):
-    rng = np.random.default_rng(seed)
-    # results[method][alpha] -> list of rejection rates over ns
-    methods = ["Our Method", "B-Bootstrap Exact"]
-    rates = {m: {a: np.zeros(len(ns)) for a in alphas} for m in methods}
 
-    t0 = time.time()
-    for a in alphas:
-        for j, n in enumerate(ns):
-            rej_direct = 0
-            rej_perm = 0
-            for _ in range(trials):
-                P = gen.uniform(n, rng)
-                Q = gen.huber_contaminated(n, rng, alpha=a)
-                rej_direct += M.direct_test(P, Q, delta=delta, exact=exact)["reject"]
-                rej_perm += M.permutation_test(P, Q, B=B, rng=rng, level=delta,
-                                               exact=exact)["reject"]
-            rates["Our Method"][a][j] = rej_direct / trials
-            rates["B-Bootstrap Exact"][a][j] = rej_perm / trials
-            print(f"alpha={a:.2f} n={n:<4d} "
-                  f"direct={rates['Our Method'][a][j]:.3f} "
-                  f"boot={rates['B-Bootstrap Exact'][a][j]:.3f} "
-                  f"[{time.time()-t0:.1f}s]")
+def run(ns, alphas, B, Z, delta, eps, seed, outfile, randomized):
+    # one fresh child seed per trial -> reproducible given `seed`
+    seedseq = np.random.SeedSequence(seed)
+    rows = []
+    t_start = time.time()
 
-    # ---- plot: one panel per alpha ----
-    fig, axes = plt.subplots(1, len(alphas), figsize=(4.2 * len(alphas), 3.6),
-                             sharey=True)
-    if len(alphas) == 1:
-        axes = [axes]
-    styles = {"Our Method": dict(marker="o", color="#1f77b4"),
-              "B-Bootstrap Exact": dict(marker="s", color="#d62728", ls="--")}
-    for ax, a in zip(axes, alphas):
-        for m in methods:
-            ax.plot(ns, rates[m][a], label=m, **styles[m])
-        if a == 0.0:
-            ax.axhline(delta, color="gray", ls=":", lw=1, label=f"level = {delta}")
-            ax.set_title(r"$\alpha = 0$  (null / size)")
-        else:
-            ax.set_title(rf"$\alpha = {a}$")
-        ax.set_xlabel("sample size $n$")
-        ax.set_xscale("log")
-        ax.set_ylim(-0.03, 1.03)
-        ax.grid(alpha=0.3)
-    axes[0].set_ylabel("empirical rejection rate")
-    axes[-1].legend(fontsize=8, loc="lower right")
-    fig.suptitle(f"dKS two-sample test: empirical rejection "
-                 f"(trials={trials}, B={B}, $\\delta$={delta})")
-    fig.tight_layout()
-    fig.savefig(outfile, bbox_inches="tight")
-    print(f"\nsaved {outfile}")
+    for n in ns:
+        for a in alphas:
+            rej = {m: np.zeros(Z, dtype=bool) for m in METHOD_ORDER}
+            elp = {m: np.zeros(Z) for m in METHOD_ORDER}
+            for z in range(Z):
+                rng = np.random.default_rng(seedseq.spawn(1)[0])
+                P = gen.uniform_square(n, rng)
+                Q = gen.huber_mixture(n, a, rng)
+
+                # exact-sample dKS permutation test
+                r, _, _, e = M.permutation_test(
+                    P, Q, M.exact_stat, B, delta, rng, randomized)
+                rej[M.METHOD_EXACT][z], elp[M.METHOD_EXACT][z] = r, e
+
+                # SSS-dKS permutation test (same B)
+                r, _, _, e = M.permutation_test(
+                    P, Q, lambda A, Bp: M.sss_stat(A, Bp, eps),
+                    B, delta, rng, randomized)
+                rej[M.METHOD_SSS][z], elp[M.METHOD_SSS][z] = r, e
+
+                # SSS-dKS direct (B-free)
+                r, _, _, e = M.sss_direct_test(P, Q, delta, eps)
+                rej[M.METHOD_SSS_DIRECT][z], elp[M.METHOD_SSS_DIRECT][z] = r, e
+
+            for m in METHOD_ORDER:
+                rows.append({
+                    "method": m,
+                    "label": M.LABELS[m],
+                    "n": n,
+                    "alpha": a,
+                    "rejection_rate": float(rej[m].mean()),
+                    "avg_runtime": float(elp[m].mean()),
+                    "Z": Z, "B": B, "delta": delta,
+                })
+            print(f"n={n:<4d} alpha={a:<4.2f} "
+                  f"| exact={rej[M.METHOD_EXACT].mean():.3f}@{elp[M.METHOD_EXACT].mean()*1e3:7.2f}ms "
+                  f"| SSS={rej[M.METHOD_SSS].mean():.3f}@{elp[M.METHOD_SSS].mean()*1e3:7.2f}ms "
+                  f"| direct={rej[M.METHOD_SSS_DIRECT].mean():.3f}@{elp[M.METHOD_SSS_DIRECT].mean()*1e3:6.3f}ms "
+                  f"[{time.time()-t_start:.0f}s]")
+
+    os.makedirs(os.path.dirname(outfile), exist_ok=True)
+    with open(outfile, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+
+    _print_summary(rows, delta)
+    print(f"\nsaved {outfile}  ({len(rows)} rows)")
+    return rows
+
+
+def _print_summary(rows, delta):
+    print("\n=== POWER SUMMARY (rejection_rate | avg_runtime ms) ===")
+    header = f"{'method':<26}{'n':>6}{'alpha':>7}{'reject':>9}{'runtime_ms':>13}"
+    print(header)
+    print("-" * len(header))
+    for m in METHOD_ORDER:
+        for r in [r for r in rows if r["method"] == m]:
+            flag = "  <- null size" if r["alpha"] == 0.0 else ""
+            print(f"{M.LABELS[m]:<26}{r['n']:>6}{r['alpha']:>7.2f}"
+                  f"{r['rejection_rate']:>9.3f}{r['avg_runtime']*1e3:>13.3f}{flag}")
+    print(f"(null target ~ delta = {delta})")
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--full", action="store_true",
-                    help="full plan settings (slow); default is a quick demo")
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--n", type=int, nargs="+", default=[50, 100, 200],
+                    help="sample sizes (default: small verification grid)")
+    ap.add_argument("--alpha", type=float, nargs="+", default=[0.0, 0.15, 0.30],
+                    help="Huber contamination levels (alpha=0 is the null)")
+    ap.add_argument("--B", type=int, default=100, help="permutations per test")
+    ap.add_argument("--Z", type=int, default=100, help="trials per (n, alpha) cell")
+    ap.add_argument("--delta", type=float, default=0.05, help="nominal level")
+    ap.add_argument("--eps", type=float, default=-1.0,
+                    help="SSS grid resolution; <=0 uses the 2*sqrt(n) grid")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="power.pdf")
-    ap.add_argument("--exact", action="store_true",
-                    help="use the exact O(n^2) statistic (slow; only for small n). "
-                         "Default is the fast O(n log n) approximation.")
+    ap.add_argument("--randomized", action="store_true",
+                    help="randomized permutation tie-breaking (exact level delta)")
+    ap.add_argument("--out", default=os.path.join(HERE, "results", "power.csv"))
     args = ap.parse_args()
 
-    if args.full:
-        alphas = [0.0, 0.05, 0.10, 0.20]
-        ns = [20, 50, 100, 200, 500]
-        trials, B = 1000, 1000
-    else:
-        alphas = [0.0, 0.10, 0.20]
-        ns = [20, 50, 100, 200]
-        trials, B = 200, 200
-
-    run(alphas, ns, trials=trials, B=B, delta=0.05, seed=args.seed,
-        exact=args.exact, outfile=args.out)
+    print(f"power: n={args.n} alpha={args.alpha} B={args.B} Z={args.Z} "
+          f"delta={args.delta} eps={args.eps} seed={args.seed}")
+    run(args.n, args.alpha, args.B, args.Z, args.delta, args.eps,
+        args.seed, args.out, args.randomized)
 
 
 if __name__ == "__main__":
