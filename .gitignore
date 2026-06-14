@@ -30,3 +30,6 @@ __pycache__/
 
 # Generated experiment figures
 experiments/*.pdf
+
+# macOS metadata
+.DS_Store
