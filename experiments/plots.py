@@ -178,7 +178,7 @@ def fig_calibration():
     ax.plot(eps, np.clip(M.bound_clean(eps, n), 0, 1), color="#d62728", lw=2,
             label=r"clean bound  $e^{-n\varepsilon^2/4}$")
     ax.plot(eps, np.clip(M.bound_union(eps, n), 0, 1), color="#ff7f0e", lw=2,
-            ls="-.", label=r"union bound  $2^{-n\varepsilon^2/(4\ln 2n)}$")
+            ls="-.", label=r"union bound  $e^{-n\varepsilon^2/(4\ln 2n)}$")
 
     # programmatic verdict over the OPERATIVE tail -- the small-probability
     # region (P_hat <= 0.2) where a level-delta test actually sets its threshold.
