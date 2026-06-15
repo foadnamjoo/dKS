@@ -1,30 +1,35 @@
-"""Huber two-sample POWER experiment (item 3).
+"""2D Huber two-sample POWER experiment.
 
-P = Uniform([-1, 1]^2) (clean);  Q_alpha = Huber mixture with a central Gaussian
-bump at contamination level alpha.  alpha = 0 is the null (rejection rate ~ delta,
-a size check); alpha > 0 is power.
+P = Uniform([-1, 1]^2) (clean);  Q_alpha = Huber mixture with a truncated central
+Gaussian bump at contamination level alpha.  alpha = 0 is the null -- those rows
+ARE the empirical size / Type-I check (should be ~ delta within the CI for the
+permutation tests); alpha > 0 is power.
 
-For each (n, alpha) we run Z independent trials, each with a fresh per-trial seed,
-and three procedures:
+For each (n, alpha) we run Z trials, each with a fresh per-trial seed, and four
+procedures:
 
-  * exact-sample dKS  -- permutation_test(stat_fn = exact_stat)        [reference]
+  * exact-sample dKS  -- permutation_test(stat_fn = exact_stat)        [O(n^2) baseline]
   * SSS-dKS           -- permutation_test(stat_fn = sss_stat), same B  [the main one]
-  * SSS-dKS direct    -- B-free threshold test (PENDING Peter's C2)    [the cheap one]
+  * SSS-dKS direct (clean)  -- B-free, threshold tau_clean            [PENDING C2]
+  * SSS-dKS direct (union)  -- B-free, threshold tau_union            [PENDING C2]
 
-We compare ONLY exact-sample dKS vs Sample-Sketch-Solve dKS (+ the direct
-variant) -- no MMD / energy / Bickel: the point is the algorithmic framing
-(same statistic, exact vs sketched), not a kernel-vs-dKS bake-off.
+We compare ONLY exact-sample dKS vs Sample-Sketch-Solve dKS (+ the two direct
+variants).  No MMD / energy / Bickel: this is an algorithmic comparison (same
+dKS statistic, exact vs sketched vs analytic-threshold), not a divergence
+bake-off.
 
-Per (method, n, alpha) we record rejection_rate = mean(reject) and
-avg_runtime = mean(elapsed), and write results/power.csv.
+Per (method, n, alpha) we record rejection_rate, a 95% Wilson binomial CI, and
+avg_runtime; results/power.csv columns:
+    method, n, alpha, B, delta, Z, rejection_rate, ci_low, ci_high, avg_runtime
 
-Quick verification run (small defaults, a few minutes):
+Quick verification (a few minutes):
     python experiments/run_power.py
 Scale up for the paper:
     python experiments/run_power.py --n 50 100 200 400 800 --B 300 --Z 300
 """
 import argparse
 import csv
+import math
 import os
 import sys
 import time
@@ -36,11 +41,22 @@ import generators as gen
 import methods as M
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-METHOD_ORDER = [M.METHOD_EXACT, M.METHOD_SSS, M.METHOD_SSS_DIRECT]
+METHOD_ORDER = [M.METHOD_EXACT, M.METHOD_SSS,
+                M.METHOD_DIRECT_CLEAN, M.METHOD_DIRECT_UNION]
+
+
+def wilson_ci(k, Z, z=1.96):
+    """95% Wilson score interval for a binomial proportion k / Z."""
+    if Z == 0:
+        return 0.0, 0.0
+    phat = k / Z
+    denom = 1.0 + z * z / Z
+    center = (phat + z * z / (2.0 * Z)) / denom
+    half = (z / denom) * math.sqrt(phat * (1.0 - phat) / Z + z * z / (4.0 * Z * Z))
+    return max(0.0, center - half), min(1.0, center + half)
 
 
 def run(ns, alphas, B, Z, delta, eps, seed, outfile, randomized):
-    # one fresh child seed per trial -> reproducible given `seed`
     seedseq = np.random.SeedSequence(seed)
     rows = []
     t_start = time.time()
@@ -54,35 +70,37 @@ def run(ns, alphas, B, Z, delta, eps, seed, outfile, randomized):
                 P = gen.uniform_square(n, rng)
                 Q = gen.huber_mixture(n, a, rng)
 
-                # exact-sample dKS permutation test
                 r, _, _, e = M.permutation_test(
                     P, Q, M.exact_stat, B, delta, rng, randomized)
                 rej[M.METHOD_EXACT][z], elp[M.METHOD_EXACT][z] = r, e
 
-                # SSS-dKS permutation test (same B)
                 r, _, _, e = M.permutation_test(
                     P, Q, lambda A, Bp: M.sss_stat(A, Bp, eps),
                     B, delta, rng, randomized)
                 rej[M.METHOD_SSS][z], elp[M.METHOD_SSS][z] = r, e
 
-                # SSS-dKS direct (B-free)
-                r, _, _, e = M.sss_direct_test(P, Q, delta, eps)
-                rej[M.METHOD_SSS_DIRECT][z], elp[M.METHOD_SSS_DIRECT][z] = r, e
+                r, _, _, e = M.sss_direct_test(P, Q, delta, M.tau_clean, eps)
+                rej[M.METHOD_DIRECT_CLEAN][z], elp[M.METHOD_DIRECT_CLEAN][z] = r, e
+
+                r, _, _, e = M.sss_direct_test(P, Q, delta, M.tau_union, eps)
+                rej[M.METHOD_DIRECT_UNION][z], elp[M.METHOD_DIRECT_UNION][z] = r, e
 
             for m in METHOD_ORDER:
+                k = int(rej[m].sum())
+                lo, hi = wilson_ci(k, Z)
                 rows.append({
-                    "method": m,
-                    "label": M.LABELS[m],
-                    "n": n,
-                    "alpha": a,
-                    "rejection_rate": float(rej[m].mean()),
+                    "method": m, "n": n, "alpha": a, "B": B, "delta": delta,
+                    "Z": Z, "rejection_rate": k / Z,
+                    "ci_low": lo, "ci_high": hi,
                     "avg_runtime": float(elp[m].mean()),
-                    "Z": Z, "B": B, "delta": delta,
                 })
-            print(f"n={n:<4d} alpha={a:<4.2f} "
-                  f"| exact={rej[M.METHOD_EXACT].mean():.3f}@{elp[M.METHOD_EXACT].mean()*1e3:7.2f}ms "
-                  f"| SSS={rej[M.METHOD_SSS].mean():.3f}@{elp[M.METHOD_SSS].mean()*1e3:7.2f}ms "
-                  f"| direct={rej[M.METHOD_SSS_DIRECT].mean():.3f}@{elp[M.METHOD_SSS_DIRECT].mean()*1e3:6.3f}ms "
+            print(f"n={n:<4d} a={a:<4.2f} | "
+                  f"exact={rej[M.METHOD_EXACT].mean():.2f} "
+                  f"SSS={rej[M.METHOD_SSS].mean():.2f} "
+                  f"dir_clean={rej[M.METHOD_DIRECT_CLEAN].mean():.2f} "
+                  f"dir_union={rej[M.METHOD_DIRECT_UNION].mean():.2f} | "
+                  f"t: exact={elp[M.METHOD_EXACT].mean()*1e3:6.1f}ms "
+                  f"SSS={elp[M.METHOD_SSS].mean()*1e3:5.1f}ms "
                   f"[{time.time()-t_start:.0f}s]")
 
     os.makedirs(os.path.dirname(outfile), exist_ok=True)
@@ -91,31 +109,41 @@ def run(ns, alphas, B, Z, delta, eps, seed, outfile, randomized):
         w.writeheader()
         w.writerows(rows)
 
-    _print_summary(rows, delta)
+    _print_summary(rows, alphas, delta)
     print(f"\nsaved {outfile}  ({len(rows)} rows)")
     return rows
 
 
-def _print_summary(rows, delta):
-    print("\n=== POWER SUMMARY (rejection_rate | avg_runtime ms) ===")
-    header = f"{'method':<26}{'n':>6}{'alpha':>7}{'reject':>9}{'runtime_ms':>13}"
-    print(header)
-    print("-" * len(header))
+def _print_summary(rows, alphas, delta):
+    def cell(r):
+        return (f"{r['rejection_rate']:.3f} "
+                f"[{r['ci_low']:.3f},{r['ci_high']:.3f}] "
+                f"{r['avg_runtime']*1e3:.2f}ms")
+
+    print(f"\n=== EMPIRICAL SIZE  (alpha = 0; target ~ delta = {delta}, "
+          f"within 95% Wilson CI) ===")
+    hdr = f"{'method':<40}{'n':>6}{'reject [95% CI]  runtime':>30}"
+    print(hdr); print("-" * len(hdr))
     for m in METHOD_ORDER:
-        for r in [r for r in rows if r["method"] == m]:
-            flag = "  <- null size" if r["alpha"] == 0.0 else ""
-            print(f"{M.LABELS[m]:<26}{r['n']:>6}{r['alpha']:>7.2f}"
-                  f"{r['rejection_rate']:>9.3f}{r['avg_runtime']*1e3:>13.3f}{flag}")
-    print(f"(null target ~ delta = {delta})")
+        for r in [r for r in rows if r["method"] == m and r["alpha"] == 0.0]:
+            ok = "OK" if (r["ci_low"] <= delta <= r["ci_high"]) else "**"
+            print(f"{M.LABELS[m]:<40}{r['n']:>6}  {cell(r):>26} {ok}")
+
+    print("\n=== POWER  (alpha > 0:  rejection_rate [95% CI]  avg_runtime) ===")
+    for a in [x for x in alphas if x > 0.0]:
+        print(f"\n-- alpha = {a} --")
+        hdr = f"{'method':<40}{'n':>6}{'reject [95% CI]  runtime':>30}"
+        print(hdr)
+        for m in METHOD_ORDER:
+            for r in [r for r in rows if r["method"] == m and r["alpha"] == a]:
+                print(f"{M.LABELS[m]:<40}{r['n']:>6}  {cell(r):>26}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--n", type=int, nargs="+", default=[50, 100, 200],
-                    help="sample sizes (default: small verification grid)")
-    ap.add_argument("--alpha", type=float, nargs="+", default=[0.0, 0.15, 0.30],
-                    help="Huber contamination levels (alpha=0 is the null)")
+    ap.add_argument("--n", type=int, nargs="+", default=[50, 100, 200, 400])
+    ap.add_argument("--alpha", type=float, nargs="+", default=[0.0, 0.15, 0.30])
     ap.add_argument("--B", type=int, default=100, help="permutations per test")
     ap.add_argument("--Z", type=int, default=100, help="trials per (n, alpha) cell")
     ap.add_argument("--delta", type=float, default=0.05, help="nominal level")

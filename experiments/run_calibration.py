@@ -1,21 +1,23 @@
-"""Null-CALIBRATION experiment for dKS (item 5).
+"""Null-CALIBRATION experiment for 2D dKS.
 
-Under H0 (P and Q identically distributed), draw Z independent fresh uniform
-redraws and record the Sample-Sketch-Solve dKS statistic (dks.approx) each time.
-These Z null values let plots.py compare the empirical tail
+Under H0 (P = Q = Uniform([-1, 1]^2)) draw Z independent fresh samples and record
+the null dKS value with BOTH statistics:
 
-    P_hat(dKS >= eps)
+  * exact-sample dKS (dks.exact)  -- the direct O(n^2) value; this is the one the
+    theory bounds, so its empirical tail is what we compare to the bounds.
+  * SSS-dKS         (dks.approx)  -- recorded too, so the approximation's
+    downward bias (the grid under-counts the true max gap) is visible.
 
-against the analytic bound exp(-n * eps^2 / 4).  If the empirical tail sits
-below and close to the bound, the clean threshold tau = 2*sqrt(ln(1/delta)/n)
-used by the SSS-dKS direct test is the right inversion (vs the Section 6.2 form
-with an extra ln(2n)) -- i.e. this experiment settles which direct constant is
-correct, and shows the test controls its size without being wildly conservative.
+plots.py overlays the empirical tails P_hat(dKS >= eps) on the two candidate
+bounds (clean = exp(-n eps^2/4), union = 2^(-n eps^2/(4 ln 2n))) -- the visual
+answer to which direct threshold (tau_clean vs tau_union) the null actually
+respects.
 
-We use n large (default 10000) so the tail bound is in its meaningful regime.
+Verification default: n = 2000, Z = 500 (fast even with O(n^2) exact).
+FINAL config:           n = 10000, Z = 1000  (exact at n=10k is a one-time
+                        ~10-15 min run; pass --n 10000 --Z 1000).
 
-Quick verification run:
-    python experiments/run_calibration.py --n 10000 --Z 1000
+results/calibration.csv columns:  statistic, value, n, Z
 """
 import argparse
 import csv
@@ -29,47 +31,59 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generators as gen
 import methods as M
 
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def run(n, Z, eps, seed, outfile):
     seedseq = np.random.SeedSequence(seed)
-    vals = np.empty(Z)
+    v_exact = np.empty(Z)
+    v_approx = np.empty(Z)
     t0 = time.time()
     for i in range(Z):
         rng = np.random.default_rng(seedseq.spawn(1)[0])
-        P = gen.uniform_square(n, rng)      # H0: P and Q identically distributed
+        P = gen.uniform_square(n, rng)       # H0: P and Q identically distributed
         Q = gen.uniform_square(n, rng)
-        vals[i] = M.sss_stat(P, Q, eps)     # statistic = dks.approx (SSS-dKS)
+        v_exact[i] = M.exact_stat(P, Q)
+        v_approx[i] = M.sss_stat(P, Q, eps)
         if (i + 1) % max(1, Z // 10) == 0:
             print(f"  {i+1}/{Z}  [{time.time()-t0:.0f}s]")
 
     os.makedirs(os.path.dirname(outfile), exist_ok=True)
     with open(outfile, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["trial", "n", "dks_approx"])
-        for i, v in enumerate(vals):
-            w.writerow([i, n, float(v)])
+        w.writerow(["statistic", "value", "n", "Z"])
+        for v in v_exact:
+            w.writerow(["exact", float(v), n, Z])
+        for v in v_approx:
+            w.writerow(["approx", float(v), n, Z])
 
-    # quick console diagnostic: empirical tail vs bound at a few thresholds
-    print(f"\nn={n}  Z={Z}  statistic=SSS-dKS (dks.approx)")
-    print(f"  null dKS: min={vals.min():.4f}  median={np.median(vals):.4f}  "
-          f"mean={vals.mean():.4f}  max={vals.max():.4f}")
-    print(f"  {'eps':>8}{'P_hat(>=eps)':>16}{'exp(-n eps^2/4)':>18}{'below?':>9}")
-    qs = np.quantile(vals, [0.5, 0.9, 0.95, 0.99])
-    for e in qs:
+    _diagnose("exact-sample dKS (dks.exact)", v_exact, n)
+    _diagnose("SSS-dKS (dks.approx)", v_approx, n)
+    bias = float(np.mean(v_exact - v_approx))
+    print(f"\napprox downward bias (mean exact - mean approx) = {bias:+.4f}  "
+          f"({100*bias/np.mean(v_exact):+.1f}% of mean exact)")
+    print(f"saved {outfile}  ({2*Z} rows: {Z} exact + {Z} approx)")
+    return v_exact, v_approx
+
+
+def _diagnose(name, vals, n):
+    print(f"\n{name}:  n={n} Z={len(vals)}  "
+          f"min={vals.min():.4f} median={np.median(vals):.4f} "
+          f"mean={vals.mean():.4f} max={vals.max():.4f}")
+    print(f"  {'eps':>8}{'P_hat(>=eps)':>14}{'clean bound':>14}{'union bound':>14}")
+    for e in np.quantile(vals, [0.5, 0.9, 0.95, 0.99]):
         emp = float((vals >= e).mean())
-        bound = float(np.exp(-n * e * e / 4.0))
-        print(f"  {e:>8.4f}{emp:>16.4f}{bound:>18.4f}{str(emp <= bound):>9}")
-    print(f"saved {outfile}  ({Z} null values)")
-    return vals
+        bc = float(M.bound_clean(e, n))
+        bu = float(M.bound_union(e, n))
+        print(f"  {e:>8.4f}{emp:>14.4f}{bc:>14.4f}{bu:>14.4f}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--n", type=int, default=10000, help="sample size per draw")
-    ap.add_argument("--Z", type=int, default=1000, help="number of null redraws")
+    ap.add_argument("--n", type=int, default=2000, help="sample size per draw")
+    ap.add_argument("--Z", type=int, default=500, help="number of null redraws")
     ap.add_argument("--eps", type=float, default=-1.0,
                     help="SSS grid resolution; <=0 uses the 2*sqrt(n) grid")
     ap.add_argument("--seed", type=int, default=0)
