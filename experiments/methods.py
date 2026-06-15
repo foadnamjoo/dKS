@@ -139,13 +139,15 @@ def tau_clean(n, delta):
 
 
 def tau_union(n, delta):
-    """Union/VC threshold (paper Section 6.2):  sqrt( (4 ln(2n) / n) * log2(1/delta) ).
+    """Union threshold (paper's d=2 formula):  sqrt( (4 ln(2n) / n) * ln(1/delta) ).
 
-    Carries the extra ln(2n) factor from a union bound over the grid corners;
-    larger than tau_clean, so more conservative (the safe candidate).
+    The ln(1/delta) term comes from the Chernoff bound, so it is a NATURAL log
+    (Jeff confirmed in the draft) -- not log2.  Carries the extra ln(2n) factor
+    from a union bound over the grid corners; larger than tau_clean, so more
+    conservative (the safe candidate).
     """
     n = int(n)
-    return float(np.sqrt((4.0 * np.log(2.0 * n) / n) * np.log2(1.0 / delta)))
+    return float(np.sqrt((4.0 * np.log(2.0 * n) / n) * np.log(1.0 / delta)))
 
 
 def sss_direct_test(P, Q, delta, tau_fn, eps=-1.0):
@@ -174,6 +176,6 @@ def bound_clean(eps, n):
 
 
 def bound_union(eps, n):
-    """Tail bound inverted by tau_union:  2^(-n eps^2 / (4 ln(2n)))."""
+    """Tail bound inverted by tau_union:  exp(-n eps^2 / (4 ln(2n)))."""
     eps = np.asarray(eps, dtype=float)
-    return np.power(2.0, -n * eps ** 2 / (4.0 * np.log(2.0 * n)))
+    return np.exp(-n * eps ** 2 / (4.0 * np.log(2.0 * n)))

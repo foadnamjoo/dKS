@@ -251,10 +251,10 @@ def check_D():
     e1 = e2 = e3 = e4 = inv_c = inv_u = 0.0
     for n, d in cases:
         e1 = max(e1, abs(M.tau_clean(n, d) - 2 * math.sqrt(math.log(1 / d) / n)))
-        e2 = max(e2, abs(M.tau_union(n, d) - math.sqrt((4 * math.log(2 * n) / n) * math.log2(1 / d))))
+        e2 = max(e2, abs(M.tau_union(n, d) - math.sqrt((4 * math.log(2 * n) / n) * math.log(1 / d))))
         eps = 0.05
         e3 = max(e3, abs(float(M.bound_clean(eps, n)) - math.exp(-n * eps ** 2 / 4)))
-        e4 = max(e4, abs(float(M.bound_union(eps, n)) - 2 ** (-n * eps ** 2 / (4 * math.log(2 * n)))))
+        e4 = max(e4, abs(float(M.bound_union(eps, n)) - math.exp(-n * eps ** 2 / (4 * math.log(2 * n)))))
         inv_c = max(inv_c, abs(float(M.bound_clean(M.tau_clean(n, d), n)) - d))
         inv_u = max(inv_u, abs(float(M.bound_union(M.tau_union(n, d), n)) - d))
     record("D", "tau_clean formula", e1 < 1e-12, f"max err={e1:.2e}")
