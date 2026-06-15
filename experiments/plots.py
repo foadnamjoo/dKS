@@ -9,10 +9,10 @@ experiments/figures/:
     fig_calibration.pdf        x=eps,          y=tail prob (log-y)
 
 Styling (shared):
-    exact-sample dKS       dashed + triangles
-    SSS-dKS                solid  + circles
-    SSS-dKS direct clean   dotted, faint
-    SSS-dKS direct union   dash-dot, faint
+    Baseline (exact)       dashed + triangles
+    Our Algo (approx)      solid  + circles
+    Our Algo direct clean  dotted, faint
+    Our Algo direct union  dash-dot, faint
 One color per alpha; 95% Wilson CI shaded on rejection-rate curves.
 """
 import argparse
@@ -172,9 +172,9 @@ def fig_calibration():
     xe, ye = surv(ve)
     xa, ya = surv(va)
     ax.step(xe, ye, where="post", color="#1f77b4", lw=2.2,
-            label=r"empirical exact-sample  $\hat P(\geq\varepsilon)$")
+            label=r"empirical Baseline (exact)  $\hat P(\geq\varepsilon)$")
     ax.step(xa, ya, where="post", color="#1f77b4", lw=1.8, ls="--",
-            label=r"empirical SSS-dKS (approx)")
+            label=r"empirical Our Algo (approx)")
     ax.plot(eps, np.clip(M.bound_clean(eps, n), 0, 1), color="#d62728", lw=2,
             label=r"clean bound  $e^{-n\varepsilon^2/4}$")
     ax.plot(eps, np.clip(M.bound_union(eps, n), 0, 1), color="#ff7f0e", lw=2,

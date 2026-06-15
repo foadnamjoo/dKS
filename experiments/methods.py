@@ -2,15 +2,15 @@
 
 Naming (constants below; used everywhere, code and plot legends):
 
-  * dks.exact  -> "exact-sample dKS"  (EXACT_LABEL)
+  * dks.exact  -> "Baseline"  (EXACT_LABEL)
         The DIRECT, brute-force O(n^2) computation of dKS on the pooled sample.
         It is "exact for the sample" -- NOT a theoretically-optimal exact 2D
         algorithm, and not a population quantity.  We deliberately keep this
         O(n^2) brute force as the baseline; the experiments show how close (and
         how much faster) the approximation is relative to computing it directly.
 
-  * dks.approx -> "Sample-Sketch-Solve dKS"  (SSS_LABEL, short tag "SSS-dKS")
-        Jeff's framework name for the O(n log n) grid approximation.  It is a
+  * dks.approx -> "Our Algo"  (SSS_LABEL)
+        The O(n log n) grid approximation.  It is a
         DETERMINISTIC function of the data (fixed 2*sqrt(n) grid, no random
         sub-sampling) -- verified by calling it repeatedly on fixed input -- so
         it is a valid permutation-test statistic with no extra seeding.
@@ -37,8 +37,8 @@ import dks
 EXACT_LABEL = "Baseline"
 SSS_LABEL = "Our Algo"
 SSS_TAG = "Our Algo"
-SSS_DIRECT_CLEAN_LABEL = "SSS-dKS direct (clean, PENDING Peter's C2)"
-SSS_DIRECT_UNION_LABEL = "SSS-dKS direct (union/Sec-6.2, PENDING Peter's C2)"
+SSS_DIRECT_CLEAN_LABEL = "Our Algo direct (clean)"
+SSS_DIRECT_UNION_LABEL = "Our Algo direct (union)"
 
 # stable method ids (CSV / plot keys) and their display labels
 METHOD_EXACT = "exact_sample"
@@ -54,19 +54,19 @@ LABELS = {
 LEGEND = {  # short legend tags
     METHOD_EXACT: EXACT_LABEL,
     METHOD_SSS: SSS_TAG,
-    METHOD_DIRECT_CLEAN: "SSS-dKS direct (clean)",
-    METHOD_DIRECT_UNION: "SSS-dKS direct (union)",
+    METHOD_DIRECT_CLEAN: "Our Algo direct (clean)",
+    METHOD_DIRECT_UNION: "Our Algo direct (union)",
 }
 
 
 # --- the two statistics -----------------------------------------------------
 def exact_stat(P, Q):
-    """exact-sample dKS: DIRECT brute-force O(n^2) dKS on the given samples."""
+    """Baseline: DIRECT brute-force O(n^2) dKS on the given samples."""
     return dks.exact(P, Q)
 
 
 def sss_stat(P, Q, eps=-1.0):
-    """Sample-Sketch-Solve dKS (SSS-dKS): deterministic O(n log n) grid approx.
+    """Our Algo: deterministic O(n log n) grid approx.
 
     eps <= 0 uses the default 2*sqrt(n) grid.
     """
@@ -151,7 +151,7 @@ def tau_union(n, delta):
 
 
 def sss_direct_test(P, Q, delta, tau_fn, eps=-1.0):
-    """SSS-dKS direct (B-free): reject iff dks.approx(P, Q) > tau_fn(n, delta).
+    """Our Algo direct (B-free): reject iff dks.approx(P, Q) > tau_fn(n, delta).
 
     tau_fn is tau_clean or tau_union.  NEITHER is claimed valid without proof
     (PENDING Peter's C2).  No permutations, so it costs a single approx eval --
