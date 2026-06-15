@@ -93,7 +93,7 @@ def fig_runtime_vs_n(rows):
     ax.set_xlabel("sample size  $n$")
     ax.set_ylabel("avg runtime per test  (ms)")
     ax.set_yscale("log")
-    ax.set_title("Runtime vs $n$: exact-sample dKS ($O(n^2)$) vs SSS-dKS ($O(n\\log n)$)")
+    ax.set_title("Runtime vs $n$: Baseline ($O(n^2)$) vs Our Algo ($O(n\\log n)$)")
     ax.grid(alpha=0.3, which="both")
     _legend(ax, alphas, colors, PERM)
     _save(fig, "fig_runtime_vs_n")

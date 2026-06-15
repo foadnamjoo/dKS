@@ -34,9 +34,9 @@ import numpy as np
 import dks
 
 # --- canonical names, used in code and plot legends ------------------------
-EXACT_LABEL = "exact-sample dKS"
-SSS_LABEL = "Sample-Sketch-Solve dKS"
-SSS_TAG = "SSS-dKS"
+EXACT_LABEL = "Baseline"
+SSS_LABEL = "Our Algo"
+SSS_TAG = "Our Algo"
 SSS_DIRECT_CLEAN_LABEL = "SSS-dKS direct (clean, PENDING Peter's C2)"
 SSS_DIRECT_UNION_LABEL = "SSS-dKS direct (union/Sec-6.2, PENDING Peter's C2)"
 
