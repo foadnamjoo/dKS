@@ -35,3 +35,14 @@ experiments/figures/
 
 # macOS metadata
 .DS_Store
+
+# --- local-only personal files (posters, old PDFs/copies, scratch) -- never publish ---
+*.key
+*.pdf
+/1.png
+/Untitled-1.py
+/dks_algorithm.py
+/dKS 2/
+/dKS 2 copy/
+/dKS Gausian/
+/untitled folder 2/
