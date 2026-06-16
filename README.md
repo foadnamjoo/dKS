@@ -72,6 +72,30 @@ dKS (approx) = 0.250000
 dKS (exact)  = 0.250000
 ```
 
+## Python
+
+Python bindings (via pybind11) expose the same two functions on NumPy arrays. From the repo root:
+
+```sh
+pip install .
+```
+
+Then:
+
+```python
+import numpy as np
+import dks
+
+P = np.array([[0.1, 0.2], [0.5, 0.7]])
+Q = np.array([[0.2, 0.2], [0.6, 0.8]])
+
+dks.approx(P, Q)        # fast O(n log n), default 2*sqrt(n) grid
+dks.exact(P, Q)         # exact O(n^2)
+dks.approx(P, Q, 0.05)  # within 0.05 of exact
+```
+
+Inputs are (N, 2) float arrays; the two sets may differ in size. Requires NumPy and a C++ compiler.
+
 ## Layout
 
 ```
@@ -92,7 +116,6 @@ and covers identity and fully-separated edge cases.
 
 ## Roadmap
 
-- Python bindings (`pip install` / `import dks`) via pybind11.
 - Higher dimensions (`d = 3, 4`) following the paper's Klee's-measure reduction.
 - Two-sample testing utilities (calibrated thresholds; permutation baseline).
 
