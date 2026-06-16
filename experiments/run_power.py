@@ -56,36 +56,42 @@ def wilson_ci(k, Z, z=1.96):
     return max(0.0, center - half), min(1.0, center + half)
 
 
-def run(ns, alphas, B, Z, delta, eps, seed, outfile, randomized):
+def run(ns, alphas, B, Z, delta, eps, seed, outfile, randomized, methods=None):
+    # which methods to compute, in canonical order (default: all four)
+    selected = [m for m in METHOD_ORDER if methods is None or m in methods]
     seedseq = np.random.SeedSequence(seed)
     rows = []
     t_start = time.time()
 
     for n in ns:
         for a in alphas:
-            rej = {m: np.zeros(Z, dtype=bool) for m in METHOD_ORDER}
-            elp = {m: np.zeros(Z) for m in METHOD_ORDER}
+            rej = {m: np.zeros(Z, dtype=bool) for m in selected}
+            elp = {m: np.zeros(Z) for m in selected}
             for z in range(Z):
                 rng = np.random.default_rng(seedseq.spawn(1)[0])
                 P = gen.uniform_square(n, rng)
                 Q = gen.huber_mixture(n, a, rng)
 
-                r, _, _, e = M.permutation_test(
-                    P, Q, M.exact_stat, B, delta, rng, randomized)
-                rej[M.METHOD_EXACT][z], elp[M.METHOD_EXACT][z] = r, e
+                if M.METHOD_EXACT in rej:
+                    r, _, _, e = M.permutation_test(
+                        P, Q, M.exact_stat, B, delta, rng, randomized)
+                    rej[M.METHOD_EXACT][z], elp[M.METHOD_EXACT][z] = r, e
 
-                r, _, _, e = M.permutation_test(
-                    P, Q, lambda A, Bp: M.sss_stat(A, Bp, eps),
-                    B, delta, rng, randomized)
-                rej[M.METHOD_SSS][z], elp[M.METHOD_SSS][z] = r, e
+                if M.METHOD_SSS in rej:
+                    r, _, _, e = M.permutation_test(
+                        P, Q, lambda A, Bp: M.sss_stat(A, Bp, eps),
+                        B, delta, rng, randomized)
+                    rej[M.METHOD_SSS][z], elp[M.METHOD_SSS][z] = r, e
 
-                r, _, _, e = M.sss_direct_test(P, Q, delta, M.tau_clean, eps)
-                rej[M.METHOD_DIRECT_CLEAN][z], elp[M.METHOD_DIRECT_CLEAN][z] = r, e
+                if M.METHOD_DIRECT_CLEAN in rej:
+                    r, _, _, e = M.sss_direct_test(P, Q, delta, M.tau_clean, eps)
+                    rej[M.METHOD_DIRECT_CLEAN][z], elp[M.METHOD_DIRECT_CLEAN][z] = r, e
 
-                r, _, _, e = M.sss_direct_test(P, Q, delta, M.tau_union, eps)
-                rej[M.METHOD_DIRECT_UNION][z], elp[M.METHOD_DIRECT_UNION][z] = r, e
+                if M.METHOD_DIRECT_UNION in rej:
+                    r, _, _, e = M.sss_direct_test(P, Q, delta, M.tau_union, eps)
+                    rej[M.METHOD_DIRECT_UNION][z], elp[M.METHOD_DIRECT_UNION][z] = r, e
 
-            for m in METHOD_ORDER:
+            for m in selected:
                 k = int(rej[m].sum())
                 lo, hi = wilson_ci(k, Z)
                 rows.append({
@@ -94,14 +100,9 @@ def run(ns, alphas, B, Z, delta, eps, seed, outfile, randomized):
                     "ci_low": lo, "ci_high": hi,
                     "avg_runtime": float(elp[m].mean()),
                 })
-            print(f"n={n:<4d} a={a:<4.2f} | "
-                  f"exact={rej[M.METHOD_EXACT].mean():.2f} "
-                  f"SSS={rej[M.METHOD_SSS].mean():.2f} "
-                  f"dir_clean={rej[M.METHOD_DIRECT_CLEAN].mean():.2f} "
-                  f"dir_union={rej[M.METHOD_DIRECT_UNION].mean():.2f} | "
-                  f"t: exact={elp[M.METHOD_EXACT].mean()*1e3:6.1f}ms "
-                  f"SSS={elp[M.METHOD_SSS].mean()*1e3:5.1f}ms "
-                  f"[{time.time()-t_start:.0f}s]")
+            stat = "  ".join(f"{m}={rej[m].mean():.2f}@{elp[m].mean()*1e3:.1f}ms"
+                             for m in selected)
+            print(f"n={n:<6d} a={a:<4.2f} | {stat}  [{time.time()-t_start:.0f}s]")
 
     os.makedirs(os.path.dirname(outfile), exist_ok=True)
     with open(outfile, "w", newline="") as f:
@@ -152,13 +153,17 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--randomized", action="store_true",
                     help="randomized permutation tie-breaking (exact level delta)")
+    ap.add_argument("--methods", nargs="+", choices=METHOD_ORDER, default=METHOD_ORDER,
+                    metavar="KEY",
+                    help="which methods to compute per cell (default: all four). "
+                         "keys: exact_sample sss sss_direct_clean sss_direct_union")
     ap.add_argument("--out", default=os.path.join(HERE, "results", "power.csv"))
     args = ap.parse_args()
 
     print(f"power: n={args.n} alpha={args.alpha} B={args.B} Z={args.Z} "
-          f"delta={args.delta} eps={args.eps} seed={args.seed}")
+          f"delta={args.delta} eps={args.eps} seed={args.seed} methods={args.methods}")
     run(args.n, args.alpha, args.B, args.Z, args.delta, args.eps,
-        args.seed, args.out, args.randomized)
+        args.seed, args.out, args.randomized, args.methods)
 
 
 if __name__ == "__main__":
