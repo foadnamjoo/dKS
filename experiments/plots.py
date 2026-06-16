@@ -62,6 +62,20 @@ def _alpha_colors(alphas):
             for i, a in enumerate(alphas)}
 
 
+# Curated palette for the CSR panels: vivid, clearly differentiable and
+# colourblind-safe (Okabe-Ito) -- blue -> green -> vermillion as contamination
+# rises.  Kept separate from _alpha_colors so the other finalized panels (still
+# on viridis) are untouched.  Falls back to viridis if there are more alphas
+# than palette entries.
+_CSR_PALETTE = ["#0072B2", "#009E73", "#D55E00", "#CC79A7", "#E69F00"]
+
+
+def _alpha_colors_csr(alphas):
+    if len(alphas) <= len(_CSR_PALETTE):
+        return {a: _CSR_PALETTE[i] for i, a in enumerate(alphas)}
+    return _alpha_colors(alphas)
+
+
 def _ser(rows, m, a):
     pts = sorted([r for r in rows if r["method"] == m and r["alpha"] == a],
                  key=lambda r: r["n"])
@@ -307,18 +321,37 @@ def fig_calibration_cdf():
 # --- over the n it has (Baseline clipped at 500, Our Algo to 1000).
 _CSR_CSV = "power_smalln.csv"
 _CSR_LBL = {M.METHOD_EXACT: "Baseline (exact)", M.METHOD_SSS: "Our Algo"}
+# CSR-only marker/line styles (the shared global STYLE -- used by the other,
+# already-finalized panels -- is left untouched).  Square for Baseline reads
+# more clearly than the old triangle; explicit dash tuple for a crisp dashed
+# curve both in-axes and in the legend key.
+_CSR_STYLE = {
+    M.METHOD_EXACT: dict(linestyle=(0, (6, 4)), marker="s", lw=1.9, markersize=6),
+    M.METHOD_SSS:   dict(linestyle="-",         marker="o", lw=1.9, markersize=6),
+}
 
 
 def _legend_csr(ax, alphas, colors, methods, rows, fs=10):
     have = {r["method"] for r in rows}
     methods = [m for m in methods if m in have]
-    mh = [Line2D([0], [0], color="0.15", label=_CSR_LBL.get(m, M.LABELS[m]),
-                 **{k: v for k, v in STYLE[m].items() if k != "alpha"})
-          for m in methods]
+    # Legend KEY readability: one marker per key (numpoints=1), but a long handle
+    # + a tight dash so several dash segments span the key -- the single centered
+    # marker covers ~1, leaving at least three dashes visible on Baseline; Our
+    # Algo stays solid.
+    _LEG_LS = {M.METHOD_EXACT: (0, (4, 3))}
+    mh = []
+    for m in methods:
+        st = {k: v for k, v in _CSR_STYLE[m].items() if k != "alpha"}
+        st["lw"] = 2.3
+        if m in _LEG_LS:
+            st["linestyle"] = _LEG_LS[m]
+        mh.append(Line2D([0], [0], color="0.15",
+                         label=_CSR_LBL.get(m, M.LABELS[m]), **st))
     ah = [Line2D([0], [0], color=colors[a], lw=3, label=rf"$\alpha={a:g}$")
           for a in alphas]
-    leg1 = ax.legend(handles=mh, title="method (line style)", fontsize=fs,
-                     title_fontsize=fs, loc="upper left", framealpha=0.92)
+    leg1 = ax.legend(handles=mh, fontsize=fs,
+                     title_fontsize=fs, loc="upper left", framealpha=0.92,
+                     handlelength=4.8, handletextpad=0.7, numpoints=1)
     ax.add_artist(leg1)
     ax.legend(handles=ah, title="contamination", fontsize=fs, title_fontsize=fs,
               loc="lower right", framealpha=0.92)
@@ -327,7 +360,7 @@ def _legend_csr(ax, alphas, colors, methods, rows, fs=10):
 def fig_power_vs_n_csr():
     rows = _read_power(_CSR_CSV)
     alphas = sorted({r["alpha"] for r in rows})
-    colors = _alpha_colors(alphas)
+    colors = _alpha_colors_csr(alphas)
     delta = rows[0]["delta"]
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
     for m in PERM:
@@ -337,7 +370,7 @@ def fig_power_vs_n_csr():
                 continue
             ax.fill_between(s["n"], s["ci_low"], s["ci_high"],
                             color=colors[a], alpha=0.13, lw=0)
-            ax.plot(s["n"], s["rejection_rate"], color=colors[a], **STYLE[m])
+            ax.plot(s["n"], s["rejection_rate"], color=colors[a], **_CSR_STYLE[m])
     ax.axhline(delta, color="0.55", ls=(0, (1, 1)), lw=1)
     ax.set_xlabel("sample size  $n$", fontsize=13)
     ax.set_ylabel("rejection rate  (95% Wilson CI)", fontsize=13)
@@ -352,14 +385,14 @@ def fig_power_vs_n_csr():
 def fig_runtime_vs_n_csr():
     rows = _read_power(_CSR_CSV)
     alphas = sorted({r["alpha"] for r in rows})
-    colors = _alpha_colors(alphas)
+    colors = _alpha_colors_csr(alphas)
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
     for m in PERM:
         for a in alphas:
             s = _ser(rows, m, a)
             if not len(s["n"]):
                 continue
-            ax.plot(s["n"], s["avg_runtime"] * 1e3, color=colors[a], **STYLE[m])
+            ax.plot(s["n"], s["avg_runtime"] * 1e3, color=colors[a], **_CSR_STYLE[m])
     ax.set_xlabel("sample size  $n$", fontsize=13)
     ax.set_ylabel("avg runtime per test  (ms)", fontsize=13)
     ax.set_yscale("log")
@@ -374,7 +407,7 @@ def fig_runtime_vs_n_csr():
 def fig_power_vs_runtime_csr():
     rows = _read_power(_CSR_CSV)
     alphas = sorted({r["alpha"] for r in rows})
-    colors = _alpha_colors(alphas)
+    colors = _alpha_colors_csr(alphas)
     delta = rows[0]["delta"]
     fig, ax = plt.subplots(figsize=(7.0, 4.8))
     for m in PERM:
@@ -385,7 +418,7 @@ def fig_power_vs_runtime_csr():
             x = s["avg_runtime"] * 1e3
             ax.fill_between(x, s["ci_low"], s["ci_high"],
                             color=colors[a], alpha=0.13, lw=0)
-            ax.plot(x, s["rejection_rate"], color=colors[a], **STYLE[m])
+            ax.plot(x, s["rejection_rate"], color=colors[a], **_CSR_STYLE[m])
     ax.axhline(delta, color="0.55", ls=(0, (1, 1)), lw=1)
     ax.set_xlabel("avg runtime per test  (ms, log scale)", fontsize=13)
     ax.set_ylabel("rejection probability  (95% Wilson CI)", fontsize=13)
