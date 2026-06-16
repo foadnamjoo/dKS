@@ -43,9 +43,9 @@ PERM = [M.METHOD_EXACT, M.METHOD_SSS]
 DIRECT = [M.METHOD_DIRECT_CLEAN, M.METHOD_DIRECT_UNION]
 
 
-def _read_power():
+def _read_power(fname="power.csv"):
     rows = []
-    with open(os.path.join(RESULTS, "power.csv")) as f:
+    with open(os.path.join(RESULTS, fname)) as f:
         for r in csv.DictReader(f):
             rows.append({
                 "method": r["method"], "n": int(r["n"]), "alpha": float(r["alpha"]),
@@ -299,6 +299,104 @@ def fig_calibration_cdf():
     ax.grid(alpha=0.3, which="both")
     ax.legend(loc="lower right", fontsize=8)
     _save(fig, "fig_calibration_cdf")
+
+
+# --- CSR (computational-statistical) panels: Baseline (exact, dashed) vs
+# --- Our Algo (approx, solid).  Read the small-n sweep in power_smalln.csv;
+# --- larger fonts + explicit dash/solid method key; each method is plotted only
+# --- over the n it has (Baseline clipped at 500, Our Algo to 1000).
+_CSR_CSV = "power_smalln.csv"
+_CSR_LBL = {M.METHOD_EXACT: "Baseline (exact)", M.METHOD_SSS: "Our Algo"}
+
+
+def _legend_csr(ax, alphas, colors, methods, rows, fs=10):
+    have = {r["method"] for r in rows}
+    methods = [m for m in methods if m in have]
+    mh = [Line2D([0], [0], color="0.15", label=_CSR_LBL.get(m, M.LABELS[m]),
+                 **{k: v for k, v in STYLE[m].items() if k != "alpha"})
+          for m in methods]
+    ah = [Line2D([0], [0], color=colors[a], lw=3, label=rf"$\alpha={a:g}$")
+          for a in alphas]
+    leg1 = ax.legend(handles=mh, title="method (line style)", fontsize=fs,
+                     title_fontsize=fs, loc="upper left", framealpha=0.92)
+    ax.add_artist(leg1)
+    ax.legend(handles=ah, title="contamination", fontsize=fs, title_fontsize=fs,
+              loc="lower right", framealpha=0.92)
+
+
+def fig_power_vs_n_csr():
+    rows = _read_power(_CSR_CSV)
+    alphas = sorted({r["alpha"] for r in rows})
+    colors = _alpha_colors(alphas)
+    delta = rows[0]["delta"]
+    fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    for m in PERM:
+        for a in alphas:
+            s = _ser(rows, m, a)
+            if not len(s["n"]):
+                continue
+            ax.fill_between(s["n"], s["ci_low"], s["ci_high"],
+                            color=colors[a], alpha=0.13, lw=0)
+            ax.plot(s["n"], s["rejection_rate"], color=colors[a], **STYLE[m])
+    ax.axhline(delta, color="0.55", ls=(0, (1, 1)), lw=1)
+    ax.set_xlabel("sample size  $n$", fontsize=13)
+    ax.set_ylabel("rejection rate  (95% Wilson CI)", fontsize=13)
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_title(r"CSR power vs $n$ (Baseline clipped at $n=500$)", fontsize=13)
+    ax.tick_params(labelsize=11)
+    ax.grid(alpha=0.3)
+    _legend_csr(ax, alphas, colors, PERM, rows)
+    _save(fig, "fig_power_vs_n_csr")
+
+
+def fig_runtime_vs_n_csr():
+    rows = _read_power(_CSR_CSV)
+    alphas = sorted({r["alpha"] for r in rows})
+    colors = _alpha_colors(alphas)
+    fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    for m in PERM:
+        for a in alphas:
+            s = _ser(rows, m, a)
+            if not len(s["n"]):
+                continue
+            ax.plot(s["n"], s["avg_runtime"] * 1e3, color=colors[a], **STYLE[m])
+    ax.set_xlabel("sample size  $n$", fontsize=13)
+    ax.set_ylabel("avg runtime per test  (ms)", fontsize=13)
+    ax.set_yscale("log")
+    ax.set_title(r"CSR runtime vs $n$: Baseline $O(n^2)$ vs Our Algo $O(n\log n)$",
+                 fontsize=13)
+    ax.tick_params(labelsize=11)
+    ax.grid(alpha=0.3, which="both")
+    _legend_csr(ax, alphas, colors, PERM, rows)
+    _save(fig, "fig_runtime_vs_n_csr")
+
+
+def fig_power_vs_runtime_csr():
+    rows = _read_power(_CSR_CSV)
+    alphas = sorted({r["alpha"] for r in rows})
+    colors = _alpha_colors(alphas)
+    delta = rows[0]["delta"]
+    fig, ax = plt.subplots(figsize=(7.0, 4.8))
+    for m in PERM:
+        for a in alphas:
+            s = _ser(rows, m, a)
+            if not len(s["n"]):
+                continue
+            x = s["avg_runtime"] * 1e3
+            ax.fill_between(x, s["ci_low"], s["ci_high"],
+                            color=colors[a], alpha=0.13, lw=0)
+            ax.plot(x, s["rejection_rate"], color=colors[a], **STYLE[m])
+    ax.axhline(delta, color="0.55", ls=(0, (1, 1)), lw=1)
+    ax.set_xlabel("avg runtime per test  (ms, log scale)", fontsize=13)
+    ax.set_ylabel("rejection probability  (95% Wilson CI)", fontsize=13)
+    ax.set_xscale("log")
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_title("CSR power vs runtime (left = cheaper, up = more powerful)",
+                 fontsize=13)
+    ax.tick_params(labelsize=11)
+    ax.grid(alpha=0.3, which="both")
+    _legend_csr(ax, alphas, colors, PERM, rows)
+    _save(fig, "fig_power_vs_runtime_csr")
 
 
 def _save(fig, name):
