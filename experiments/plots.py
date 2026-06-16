@@ -277,9 +277,9 @@ def fig_calibration_cdf():
     def cdf(vals):
         return vals, np.arange(len(vals)) / len(vals)    # P(D <= eps)
 
-    lo = min(ve.min(), va.min()) * 0.8
-    hi = max(ve.max(), va.max()) * 1.25
-    eps = np.linspace(lo, hi, 500)
+    # dense grid over the plotted x-range so the slow-rising union bound is drawn
+    # across the full axis (up to ~0.95 near eps=0.109), not just the data range
+    eps = np.linspace(0.012, 0.115, 500)
 
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
     xe, ye = cdf(ve)
@@ -293,6 +293,7 @@ def fig_calibration_cdf():
             label=r"bound  $1 - e^{-n\varepsilon^2/(4\ln 2n)}$")
     ax.set_xlabel(r"threshold  $\varepsilon$  (dKS value)")
     ax.set_ylabel(r"CDF  $P(D \leq \varepsilon)$")
+    ax.set_xlim(0.012, 0.115)
     ax.set_ylim(-0.03, 1.03)
     ax.set_title(rf"Null calibration (CDF)  ($d=2$, $n={n}$, $Z={Z}$, H$_0$: $P=Q$)")
     ax.grid(alpha=0.3, which="both")
