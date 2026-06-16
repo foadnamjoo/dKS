@@ -277,9 +277,9 @@ def fig_calibration_cdf():
     def cdf(vals):
         return vals, np.arange(len(vals)) / len(vals)    # P(D <= eps)
 
-    # dense grid over the plotted x-range so the slow-rising union bound is drawn
-    # across the full axis (up to ~0.95 near eps=0.109), not just the data range
-    eps = np.linspace(0.012, 0.115, 500)
+    # dense grid over the plotted x-range; the direct union bound is vacuous
+    # (flat 0) below eps~0.044, then climbs to ~1 by eps~0.05
+    eps = np.linspace(0.010, 0.055, 500)
 
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
     xe, ye = cdf(ve)
@@ -288,12 +288,12 @@ def fig_calibration_cdf():
             label=r"empirical Baseline (exact)  $\hat P(\leq\varepsilon)$")
     ax.step(xa, ya, where="post", color="#1f77b4", lw=1.8, ls="--",
             label=r"empirical Our Algo (approx)")
-    ax.plot(eps, np.clip(1.0 - M.bound_union(eps, n), 0.0, 1.0),
+    ax.plot(eps, np.clip(1.0 - M.bound_union_direct(eps, n), 0.0, 1.0),
             color="#ff7f0e", lw=2, ls="-.",
-            label=r"bound  $1 - e^{-n\varepsilon^2/(4\ln 2n)}$")
+            label=r"bound  $1-(32/\varepsilon^2)e^{-n\varepsilon^2/2}$")
     ax.set_xlabel(r"threshold  $\varepsilon$  (dKS value)")
     ax.set_ylabel(r"CDF  $P(D \leq \varepsilon)$")
-    ax.set_xlim(0.012, 0.115)
+    ax.set_xlim(0.010, 0.055)
     ax.set_ylim(-0.03, 1.03)
     ax.set_title(rf"Null calibration (CDF)  ($d=2$, $n={n}$, $Z={Z}$, H$_0$: $P=Q$)")
     ax.grid(alpha=0.3, which="both")

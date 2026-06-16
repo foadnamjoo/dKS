@@ -179,3 +179,12 @@ def bound_union(eps, n):
     """Tail bound inverted by tau_union:  exp(-n eps^2 / (4 ln(2n)))."""
     eps = np.asarray(eps, dtype=float)
     return np.exp(-n * eps ** 2 / (4.0 * np.log(2.0 * n)))
+
+
+def bound_union_direct(eps, n):
+    """Direct inversion of the d=2 union sample bound n >= (2/eps^2) ln((1/delta)*32/eps^2).
+    Returns delta(eps) = (32/eps^2) * exp(-n*eps^2/2); the calibration-figure CDF lower
+    bound is max(0, 1 - this). Vacuous (delta>1) below eps ~ 0.044 at n=10,000.
+    This is the honest CDF-vs-eps bound, NOT the test decision threshold (that stays tau_union)."""
+    eps = np.asarray(eps, dtype=float)
+    return (32.0 / eps ** 2) * np.exp(-n * eps ** 2 / 2.0)
