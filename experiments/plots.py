@@ -69,7 +69,9 @@ def _ser(rows, m, a):
             ("n", "avg_runtime", "rejection_rate", "ci_low", "ci_high")}
 
 
-def _legend(ax, alphas, colors, methods):
+def _legend(ax, alphas, colors, methods, rows):
+    have = {r["method"] for r in rows}             # only legend methods with data
+    methods = [m for m in methods if m in have]
     mh = [Line2D([0], [0], color="0.25", label=M.LEGEND[m],
                  **{k: v for k, v in STYLE[m].items() if k != "alpha"})
           for m in methods]
@@ -95,7 +97,7 @@ def fig_runtime_vs_n(rows):
     ax.set_yscale("log")
     ax.set_title("Runtime vs $n$: Baseline ($O(n^2)$) vs Our Algo ($O(n\\log n)$)")
     ax.grid(alpha=0.3, which="both")
-    _legend(ax, alphas, colors, PERM)
+    _legend(ax, alphas, colors, PERM, rows)
     _save(fig, "fig_runtime_vs_n")
 
 
@@ -122,7 +124,7 @@ def fig_power_vs_n(rows):
     ax.set_ylim(-0.03, 1.03)
     ax.set_title("Power vs $n$  ($\\alpha=0$ row is the empirical size / Type-I)")
     ax.grid(alpha=0.3)
-    _legend(ax, alphas, colors, PERM + DIRECT)
+    _legend(ax, alphas, colors, PERM + DIRECT, rows)
     _save(fig, "fig_power_vs_n")
 
 
@@ -146,7 +148,7 @@ def fig_power_vs_runtime(rows):
     ax.set_ylim(-0.03, 1.03)
     ax.set_title("Power vs runtime  (left = cheaper, up = more powerful)")
     ax.grid(alpha=0.3, which="both")
-    _legend(ax, alphas, colors, PERM)
+    _legend(ax, alphas, colors, PERM, rows)
     _save(fig, "fig_power_vs_runtime")
 
 
