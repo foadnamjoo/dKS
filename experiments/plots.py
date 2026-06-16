@@ -150,6 +150,52 @@ def fig_power_vs_runtime(rows):
     _save(fig, "fig_power_vs_runtime")
 
 
+def fig_power_vs_alpha(rows):
+    """Rejection rate vs contamination alpha at a FIXED n (the single n present;
+    if several, the largest, noted in the title).  One line per method in
+    PERM + DIRECT, with 95% Wilson CI bands on the permutation methods (matching
+    fig_power_vs_n) and the M.LABELS legend.
+    """
+    ns = sorted({r["n"] for r in rows})
+    n_fixed = ns[-1]
+    sub = [r for r in rows if r["n"] == n_fixed]
+    delta = rows[0]["delta"]
+    methods = PERM + DIRECT
+    mcol = dict(zip(methods, ["#1f77b4", "#d62728", "#2ca02c", "#9467bd"]))
+
+    def ser(m):
+        pts = sorted([r for r in sub if r["method"] == m], key=lambda r: r["alpha"])
+        return {k: np.array([p[k] for p in pts]) for k in
+                ("alpha", "rejection_rate", "ci_low", "ci_high")}
+
+    fig, ax = plt.subplots(figsize=(6.6, 4.4))
+    for m in DIRECT:                       # faint, behind (no CI band)
+        s = ser(m)
+        if len(s["alpha"]):
+            ax.plot(s["alpha"], s["rejection_rate"], color=mcol[m], **STYLE[m])
+    for m in PERM:                         # CI band + line
+        s = ser(m)
+        if len(s["alpha"]):
+            ax.fill_between(s["alpha"], s["ci_low"], s["ci_high"],
+                            color=mcol[m], alpha=0.13, lw=0)
+            ax.plot(s["alpha"], s["rejection_rate"], color=mcol[m], **STYLE[m])
+    ax.axhline(delta, color="0.55", ls=(0, (1, 1)), lw=1)
+    ax.text(ax.get_xlim()[1], delta, f" $\\delta={delta:g}$", va="center",
+            ha="left", fontsize=7, color="0.4")
+    ax.set_xlabel(r"contamination  $\alpha$")
+    ax.set_ylabel("rejection rate  (95% Wilson CI)")
+    ax.set_ylim(-0.03, 1.03)
+    note = f" (largest of {ns})" if len(ns) > 1 else ""
+    ax.set_title(rf"Power vs contamination $\alpha$  (fixed $n={n_fixed}${note})")
+    ax.grid(alpha=0.3)
+    handles = [Line2D([0], [0], color=mcol[m], label=M.LABELS[m],
+                      **{k: v for k, v in STYLE[m].items() if k != "alpha"})
+               for m in methods]
+    ax.legend(handles=handles, title="method", fontsize=7.5, title_fontsize=8,
+              loc="upper left", framealpha=0.92)
+    _save(fig, "fig_power_vs_alpha")
+
+
 def fig_calibration():
     rows = {"exact": [], "approx": []}
     n = None
@@ -210,6 +256,47 @@ def fig_calibration():
     _save(fig, "fig_calibration")
 
 
+def fig_calibration_cdf():
+    """Empirical CDF P(D <= eps) under H0 for Baseline (exact) and Our Algo
+    (approx), with the theoretical bound 1 - exp(-n eps^2 / (4 ln 2n)).
+    Companion to fig_calibration (which shows the tail P(D >= eps)).
+    """
+    rows = {"exact": [], "approx": []}
+    n = None
+    with open(os.path.join(RESULTS, "calibration.csv")) as f:
+        for r in csv.DictReader(f):
+            rows[r["statistic"]].append(float(r["value"]))
+            n = int(r["n"])
+    ve = np.sort(np.asarray(rows["exact"]))
+    va = np.sort(np.asarray(rows["approx"]))
+    Z = len(ve)
+
+    def cdf(vals):
+        return vals, np.arange(len(vals)) / len(vals)    # P(D <= eps)
+
+    lo = min(ve.min(), va.min()) * 0.8
+    hi = max(ve.max(), va.max()) * 1.25
+    eps = np.linspace(lo, hi, 500)
+
+    fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    xe, ye = cdf(ve)
+    xa, ya = cdf(va)
+    ax.step(xe, ye, where="post", color="#1f77b4", lw=2.2,
+            label=r"empirical Baseline (exact)  $\hat P(\leq\varepsilon)$")
+    ax.step(xa, ya, where="post", color="#1f77b4", lw=1.8, ls="--",
+            label=r"empirical Our Algo (approx)")
+    ax.plot(eps, np.clip(1.0 - M.bound_union(eps, n), 0.0, 1.0),
+            color="#ff7f0e", lw=2, ls="-.",
+            label=r"bound  $1 - e^{-n\varepsilon^2/(4\ln 2n)}$")
+    ax.set_xlabel(r"threshold  $\varepsilon$  (dKS value)")
+    ax.set_ylabel(r"CDF  $P(D \leq \varepsilon)$")
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_title(rf"Null calibration (CDF)  ($d=2$, $n={n}$, $Z={Z}$, H$_0$: $P=Q$)")
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(loc="lower right", fontsize=8)
+    _save(fig, "fig_calibration_cdf")
+
+
 def _save(fig, name):
     os.makedirs(FIGS, exist_ok=True)
     fig.tight_layout()
@@ -230,8 +317,10 @@ def main():
         fig_runtime_vs_n(rows)
         fig_power_vs_n(rows)
         fig_power_vs_runtime(rows)
+        fig_power_vs_alpha(rows)
     if do_all or args.calibration:
         fig_calibration()
+        fig_calibration_cdf()
 
 
 if __name__ == "__main__":

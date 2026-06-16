@@ -52,8 +52,9 @@ def _truncated_normal_box(k, sigma, rng, lo=-1.0, hi=1.0):
     """k draws from N(0, sigma^2 I) restricted to [lo, hi]^2 by rejection.
 
     Out-of-box candidates are redrawn (no clamping), giving a genuine truncated
-    Gaussian with no boundary atoms.  At sigma=0.15 the box is ~6.7 sigma wide,
-    so rejection essentially never fires; the loop just guarantees correctness.
+    Gaussian with no boundary atoms.  At the default sigma=sqrt(0.1)~=0.32 the box
+    spans about +/-3.2 sigma, so rejection fires only rarely; the loop guarantees
+    correctness regardless.
     """
     out = np.empty((k, 2))
     filled = 0
@@ -66,7 +67,7 @@ def _truncated_normal_box(k, sigma, rng, lo=-1.0, hi=1.0):
     return out
 
 
-def huber_mixture(n, alpha, rng, sigma=0.15):
+def huber_mixture(n, alpha, rng, sigma=float(np.sqrt(0.1))):  # N(0, 0.1 I) = N(0, I/10) per paper
     """Huber-contaminated Q_alpha on [-1, 1]^2 (2D).
 
     Each of the n points is Uniform([-1, 1]^2) with probability (1 - alpha),
