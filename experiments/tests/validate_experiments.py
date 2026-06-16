@@ -222,8 +222,10 @@ def check_C():
     record("C", "huber_mixture(alpha=0) == uniform_square (2-sample KS not rejected)",
            px > 0.01 and py > 0.01, f"KS p-values x={px:.3f} y={py:.3f}")
 
+    SIGMA = float(np.sqrt(0.1))   # paper spec: bump ~ N(0, I/10)
+
     # (ii) alpha>0 strictly inside; (iii) no boundary atoms
-    Ha = generators.huber_mixture(N, 0.30, rng, sigma=0.15)
+    Ha = generators.huber_mixture(N, 0.30, rng)
     record("C", "huber_mixture(alpha>0) strictly inside [-1,1]^2",
            np.all(np.abs(Ha) < 1.0), f"max|coord|={np.abs(Ha).max():.6f}")
     atoms = int(np.count_nonzero(np.abs(Ha) >= 1.0 - 1e-9))
@@ -231,12 +233,12 @@ def check_C():
            atoms == 0, f"points at |coord|>=1-1e-9: {atoms}")
 
     # (iv) central-bump fraction tracks alpha
-    r3 = 3 * 0.15
-    p_unif = math.pi * r3 ** 2 / 4.0                 # uniform mass in disk radius 0.45
-    p_bump = 1 - math.exp(-r3 ** 2 / (2 * 0.15 ** 2))  # Rayleigh, ~0.989
+    r3 = 3 * SIGMA
+    p_unif = math.pi * r3 ** 2 / 4.0                   # uniform mass in disk of radius 3 sigma
+    p_bump = 1 - math.exp(-r3 ** 2 / (2 * SIGMA ** 2))  # ~0.989 (independent of sigma since r3=3 sigma)
     fracs = []
     for a in (0.0, 0.15, 0.30):
-        pts = generators.huber_mixture(N, a, rng, sigma=0.15)
+        pts = generators.huber_mixture(N, a, rng)
         fracs.append(float((np.hypot(pts[:, 0], pts[:, 1]) < r3).mean()))
     mono = fracs[0] < fracs[1] < fracs[2]
     pred = [p_unif + a * (p_bump - p_unif) for a in (0.0, 0.15, 0.30)]
