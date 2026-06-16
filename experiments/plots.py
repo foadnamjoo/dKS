@@ -188,9 +188,10 @@ def fig_power_vs_alpha(rows):
     note = f" (largest of {ns})" if len(ns) > 1 else ""
     ax.set_title(rf"Power vs contamination $\alpha$  (fixed $n={n_fixed}${note})")
     ax.grid(alpha=0.3)
+    present = [m for m in methods if len(ser(m)["alpha"])]   # only methods with data
     handles = [Line2D([0], [0], color=mcol[m], label=M.LABELS[m],
                       **{k: v for k, v in STYLE[m].items() if k != "alpha"})
-               for m in methods]
+               for m in present]
     ax.legend(handles=handles, title="method", fontsize=7.5, title_fontsize=8,
               loc="upper left", framealpha=0.92)
     _save(fig, "fig_power_vs_alpha")
