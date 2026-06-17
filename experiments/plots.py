@@ -441,6 +441,95 @@ def _save(fig, name):
     print(f"wrote figures/{name}.pdf / .png")
 
 
+# === fig:plots (fig 6): single-dKS RUNTIME + OBSERVED-ERROR panels ===========
+# Standalone from the power panels: these read results/runtime.csv (written by
+# run_runtime.py -- a single dKS eval per rep under the null P=Q, so each
+# algorithm's returned value IS its observed error).  method in {exact, approx}.
+# Baseline = dashed+square (vermillion); Our Algo = solid+circle (blue).
+_RT_CSV = "runtime.csv"
+_RT_ORDER = ["exact", "approx"]
+_RT_LBL = {"exact": "Baseline (exact)", "approx": "Our Algo"}
+_RT_COLOR = {"exact": "#D55E00", "approx": "#0072B2"}   # Okabe-Ito vermillion / blue
+_RT_STYLE = {
+    "exact":  dict(linestyle=(0, (6, 4)), marker="s", lw=1.9, markersize=6),
+    "approx": dict(linestyle="-",         marker="o", lw=1.9, markersize=6),
+}
+
+
+def _read_runtime(fname=_RT_CSV):
+    rows = []
+    with open(os.path.join(RESULTS, fname)) as f:
+        for r in csv.DictReader(f):
+            rows.append({"method": r["method"], "n": int(r["n"]),
+                         "reps": int(r["reps"]), "runtime": float(r["runtime"]),
+                         "obs_err": float(r["obs_err"])})
+    return rows
+
+
+def _rt_ser(rows, m):
+    pts = sorted([r for r in rows if r["method"] == m], key=lambda r: r["n"])
+    return {k: np.array([p[k] for p in pts]) for k in ("n", "runtime", "obs_err")}
+
+
+def fig_rt_runtime_vs_n():
+    rows = _read_runtime()
+    fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    for m in _RT_ORDER:
+        s = _rt_ser(rows, m)
+        if not len(s["n"]):
+            continue
+        ax.plot(s["n"], s["runtime"] * 1e3, color=_RT_COLOR[m],
+                label=_RT_LBL[m], **_RT_STYLE[m])
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.set_xlabel("sample size  $n$", fontsize=13)
+    ax.set_ylabel("runtime per dKS eval  (ms)", fontsize=13)
+    ax.set_title(r"Runtime vs $n$: Baseline $O(n^2)$ vs Our Algo $O(n\log n)$",
+                 fontsize=13)
+    ax.tick_params(labelsize=11)
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(fontsize=10, loc="upper left", framealpha=0.92)
+    _save(fig, "fig_rt_runtime_vs_n")
+
+
+def fig_rt_error_vs_n():
+    rows = _read_runtime()
+    fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    for m in _RT_ORDER:
+        s = _rt_ser(rows, m)
+        if not len(s["n"]):
+            continue
+        ax.plot(s["n"], s["obs_err"], color=_RT_COLOR[m],
+                label=_RT_LBL[m], **_RT_STYLE[m])
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.set_xlabel("sample size  $n$", fontsize=13)
+    ax.set_ylabel(r"observed error  (dKS value under $P=Q$)", fontsize=13)
+    ax.set_title(r"Observed error vs $n$  (both $\to 0$)", fontsize=13)
+    ax.tick_params(labelsize=11)
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(fontsize=10, loc="lower left", framealpha=0.92)
+    _save(fig, "fig_rt_error_vs_n")
+
+
+def fig_rt_runtime_vs_error():
+    rows = _read_runtime()
+    fig, ax = plt.subplots(figsize=(7.0, 4.8))
+    for m in _RT_ORDER:
+        s = _rt_ser(rows, m)
+        if not len(s["n"]):
+            continue
+        ax.plot(s["runtime"] * 1e3, s["obs_err"], color=_RT_COLOR[m],
+                label=_RT_LBL[m], **_RT_STYLE[m])
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.set_xlabel("runtime per dKS eval  (ms, log scale)", fontsize=13)
+    ax.set_ylabel("observed error  (log scale)", fontsize=13)
+    ax.set_title("Runtime vs observed error  (left = cheaper at same error)",
+                 fontsize=13)
+    ax.tick_params(labelsize=11)
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(fontsize=10, loc="upper right", framealpha=0.92)
+    _save(fig, "fig_rt_runtime_vs_error")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--power", action="store_true")
