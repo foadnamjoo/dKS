@@ -318,7 +318,7 @@ def fig_calibration_cdf():
 # --- CSR (computational-statistical) panels: Baseline (exact, dashed) vs
 # --- Our Algo (approx, solid).  Read the small-n sweep in power_smalln.csv;
 # --- larger fonts + explicit dash/solid method key; each method is plotted only
-# --- over the n it has (Baseline clipped at 500, Our Algo to 1000).
+# --- over the n it has (Baseline clipped at 1000, Our Algo to 2000).
 _CSR_CSV = "power_smalln.csv"
 _CSR_LBL = {M.METHOD_EXACT: "Baseline (exact)", M.METHOD_SSS: "Our Algo"}
 # CSR-only marker/line styles (the shared global STYLE -- used by the other,
@@ -375,7 +375,7 @@ def fig_power_vs_n_csr():
     ax.set_xlabel("sample size  $n$", fontsize=13)
     ax.set_ylabel("rejection rate  (95% Wilson CI)", fontsize=13)
     ax.set_ylim(-0.03, 1.03)
-    ax.set_title(r"CSR power vs $n$ (Baseline clipped at $n=500$)", fontsize=13)
+    ax.set_title(r"CSR power vs $n$ (Baseline clipped at $n=1000$)", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
     _legend_csr(ax, alphas, colors, PERM, rows)
