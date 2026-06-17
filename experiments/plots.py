@@ -24,6 +24,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -471,6 +472,18 @@ def _rt_ser(rows, m):
     return {k: np.array([p[k] for p in pts]) for k in ("n", "runtime", "obs_err")}
 
 
+def _rt_legend(ax, loc):
+    # Custom handles so the Baseline key shows several clear dashes: a long handle
+    # + tight dash pattern, single centered marker (same trick as the CSR legends).
+    _LEG_LS = {"exact": (0, (4, 3)), "approx": "-"}
+    handles = [Line2D([0], [0], color=_RT_COLOR[m], label=_RT_LBL[m], lw=2.3,
+                      marker=_RT_STYLE[m]["marker"],
+                      markersize=_RT_STYLE[m]["markersize"], linestyle=_LEG_LS[m])
+               for m in _RT_ORDER]
+    ax.legend(handles=handles, fontsize=10, loc=loc, framealpha=0.92,
+              handlelength=4.8, handletextpad=0.7, numpoints=1)
+
+
 def fig_rt_runtime_vs_n():
     rows = _read_runtime()
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
@@ -478,16 +491,22 @@ def fig_rt_runtime_vs_n():
         s = _rt_ser(rows, m)
         if not len(s["n"]):
             continue
-        ax.plot(s["n"], s["runtime"] * 1e3, color=_RT_COLOR[m],
+        ax.plot(s["n"], s["runtime"] / 3600.0, color=_RT_COLOR[m],
                 label=_RT_LBL[m], **_RT_STYLE[m])
-    ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_xlabel("sample size  $n$", fontsize=13)
-    ax.set_ylabel("runtime per dKS eval  (ms)", fontsize=13)
+    ax.set_ylabel("runtime per dKS eval  (hours)", fontsize=13)
+    ax.set_ylim(bottom=0)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))  # 1,000,000
     ax.set_title(r"Runtime vs $n$: Baseline $O(n^2)$ vs Our Algo $O(n\log n)$",
                  fontsize=13)
     ax.tick_params(labelsize=11)
-    ax.grid(alpha=0.3, which="both")
-    ax.legend(fontsize=10, loc="upper left", framealpha=0.92)
+    ax.grid(alpha=0.3)
+    # Our Algo's runtime (<=0.2 s) is ~0 on an hours axis -- point it out explicitly
+    ax.annotate("Our Algo: $\\leq 0.2$ s\n(flat against the axis)",
+                xy=(820000, 0.0), xytext=(600000, 0.95),
+                fontsize=10, color=_RT_COLOR["approx"], ha="center", va="bottom",
+                arrowprops=dict(arrowstyle="->", lw=1.8, color=_RT_COLOR["approx"]))
+    _rt_legend(ax, "upper left")
     _save(fig, "fig_rt_runtime_vs_n")
 
 
@@ -500,13 +519,14 @@ def fig_rt_error_vs_n():
             continue
         ax.plot(s["n"], s["obs_err"], color=_RT_COLOR[m],
                 label=_RT_LBL[m], **_RT_STYLE[m])
-    ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_xlabel("sample size  $n$", fontsize=13)
     ax.set_ylabel(r"observed error  (dKS value under $P=Q$)", fontsize=13)
+    ax.set_ylim(bottom=0)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))  # 1,000,000
     ax.set_title(r"Observed error vs $n$  (both $\to 0$)", fontsize=13)
     ax.tick_params(labelsize=11)
-    ax.grid(alpha=0.3, which="both")
-    ax.legend(fontsize=10, loc="lower left", framealpha=0.92)
+    ax.grid(alpha=0.3)
+    _rt_legend(ax, "upper right")
     _save(fig, "fig_rt_error_vs_n")
 
 
@@ -517,16 +537,15 @@ def fig_rt_runtime_vs_error():
         s = _rt_ser(rows, m)
         if not len(s["n"]):
             continue
-        ax.plot(s["runtime"] * 1e3, s["obs_err"], color=_RT_COLOR[m],
+        ax.plot(s["runtime"] / 3600.0, s["obs_err"], color=_RT_COLOR[m],
                 label=_RT_LBL[m], **_RT_STYLE[m])
-    ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlabel("runtime per dKS eval  (ms, log scale)", fontsize=13)
-    ax.set_ylabel("observed error  (log scale)", fontsize=13)
+    ax.set_xlabel("runtime per dKS eval  (hours)", fontsize=13)
+    ax.set_ylabel("observed error", fontsize=13)
     ax.set_title("Runtime vs observed error  (left = cheaper at same error)",
                  fontsize=13)
     ax.tick_params(labelsize=11)
-    ax.grid(alpha=0.3, which="both")
-    ax.legend(fontsize=10, loc="upper right", framealpha=0.92)
+    ax.grid(alpha=0.3)
+    _rt_legend(ax, "upper right")
     _save(fig, "fig_rt_runtime_vs_error")
 
 
