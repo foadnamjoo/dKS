@@ -33,12 +33,17 @@ experiments/*.pdf
 experiments/results/
 experiments/figures/
 
+# Run logs (local-only stdout from long experiment runs)
+*.log
+
 # macOS metadata
 .DS_Store
 
 # --- local-only personal files (posters, old PDFs/copies, scratch) -- never publish ---
 *.key
 *.pdf
+# ...but DO track the paper's TikZ figure PDFs (versioned source figures)
+!paper/figures/*.pdf
 /1.png
 /Untitled-1.py
 /dks_algorithm.py
