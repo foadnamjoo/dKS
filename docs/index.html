@@ -90,6 +90,8 @@
        box-shadow:0 10px 34px rgba(16,16,29,.055)}
   .fig img{display:block;width:100%;height:auto;border-radius:9px}
   .fig--center img{max-width:470px;margin:0 auto}
+  .fig-two{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start}
+  .fig-two img{flex:1 1 0;min-width:260px}
   figcaption{color:var(--muted);font-size:.9rem;margin-top:.9rem;line-height:1.55}
   figcaption b{color:var(--ink);font-weight:600}
 
@@ -232,8 +234,11 @@
     <p class="eyebrow">Results</p>
     <h2>Fast to compute, accurate at the same rate</h2>
     <figure class="fig">
-      <img src="assets/dks_results.png" alt="Left: runtime versus number of samples — the exact baseline grows quadratically while the proposed algorithm stays near-linear. Right: observed error versus number of samples — both methods converge to zero at the same rate.">
-      <figcaption><b>Runtime grows quadratically for the exact baseline but near-linearly for the proposed algorithm, while both converge in error at the same rate; behavior is the same for uniform and Gaussian data.</b></figcaption>
+      <div class="fig-two">
+        <img src="assets/dks_runtime_vs_n.png" alt="Runtime per dKS evaluation versus sample size out to about 1.05 million points: the exact baseline grows quadratically to roughly 4.2 hours while dKS-Sketch stays flat under 0.2 seconds.">
+        <img src="assets/dks_error_vs_n.png" alt="Observed error (dKS value under P = Q) versus sample size: the baseline and dKS-Sketch overlap and both fall below 0.002 by about a million points.">
+      </div>
+      <figcaption><b>Runtime (left) and observed error (right) versus sample size, out to about a million points. Runtime grows quadratically for the exact baseline but stays essentially flat for dKS-Sketch, while both methods converge in error to zero at the same rate.</b></figcaption>
     </figure>
   </section>
 
