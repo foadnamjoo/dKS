@@ -1,2 +1,7 @@
 *.ipynb linguist-documentation
 docs/** linguist-documentation
+
+# Paper-reproduction scripts: kept in the repo and browsable, but excluded from the
+# GitHub language bar so it reflects the C++ library (the repo's product) rather than
+# the Python experiments. Same mechanism already used above for docs/ and notebooks.
+experiments/** linguist-documentation
