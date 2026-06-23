@@ -144,17 +144,23 @@ inline double approx(const std::vector<Point>& P, const std::vector<Point>& Q,
     std::sort(ys.begin(), ys.end());
 
     const std::size_t total = xs.size();
-    const std::size_t step = std::max<std::size_t>(1, total / (grid + 1));
+    // Grid lines at evenly-spaced RANKS across the FULL range [0, total-1], so the last
+    // line is always the maximum coordinate (x_k = max, per Algorithm 2). The previous
+    // construction stepped from the smallest value and stopped short of the maximum,
+    // leaving the top slice with no grid line and biasing the estimate low.
+    const int lines = std::max(1, std::min(grid, static_cast<int>(total)));
 
     std::vector<double> bx, by;
-    bx.reserve(grid);
-    by.reserve(grid);
-    for (std::size_t i = 0; i < total && static_cast<int>(bx.size()) < grid; i += step)
-        bx.push_back(xs[i]);
-    for (std::size_t i = 0; i < total && static_cast<int>(by.size()) < grid; i += step)
-        by.push_back(ys[i]);
-    if (bx.empty()) bx.push_back(xs.front());
-    if (by.empty()) by.push_back(ys.front());
+    bx.reserve(lines);
+    by.reserve(lines);
+    for (int k = 0; k < lines; ++k) {
+        const std::size_t idx = (lines <= 1)
+            ? total - 1
+            : static_cast<std::size_t>(
+                  static_cast<double>(k) * static_cast<double>(total - 1) / (lines - 1) + 0.5);
+        bx.push_back(xs[idx]);
+        by.push_back(ys[idx]);
+    }
 
     const int gx = static_cast<int>(bx.size());
     const int gy = static_cast<int>(by.size());
