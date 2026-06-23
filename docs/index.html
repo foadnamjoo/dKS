@@ -148,6 +148,7 @@
     <a class="brand" href="#top">d<span>KS</span></a>
     <div class="nav-links">
       <a href="#abstract">Abstract</a>
+      <a href="#why">Why dKS?</a>
       <a href="#idea">Idea</a>
       <a href="#contributions">Contributions</a>
       <a href="#results">Results</a>
@@ -192,6 +193,15 @@
     <div class="abstract">
       <p>We revisit extending the Kolmogorov–Smirnov distance between probability distributions to the multi-dimensional setting, and argue for the proper way to approach this generalization. Our formulation maximizes the difference over dominating orthogonal rectangular ranges (<i>d</i>-sided rectangles in ℝ<sup>d</sup>), and is an integral probability metric. We prove the distance between a distribution and a sample of it converges to 0 as the sample grows, and bound this rate. Up to this same error, the distance can be computed efficiently in four or fewer dimensions — near-linear in the sample size needed for that error — and we derive a δ-precision two-sample test. Finally, we show these metric and approximation properties fail for other popular variants.</p>
     </div>
+  </section>
+
+  <section id="why" class="section">
+    <p class="eyebrow">Why dKS?</p>
+    <h2>A distance that doesn't change when you change units</h2>
+    <p>Comparing two multi-dimensional distributions comes up everywhere — deciding whether a fresh batch of data has drifted, whether two populations differ, whether a model's outputs match reality. The trouble starts when the axes carry <em>different</em> units: height vs weight, temperature vs pressure, price vs rating. Recording body mass in grams or in kilograms shouldn't change the verdict — yet for most distances it does.</p>
+    <p>Distances built on a Euclidean ground metric — <b>Maximum Mean Discrepancy</b> or <b>Wasserstein</b> — mix the axes together, so rescaling one axis silently re-weights it and moves the answer. The standard remedy, normalizing each axis (z-score, or squashing to [0,1]), only hides the problem: it is data-dependent, sensitive to outliers, and shifts the moment new data arrives.</p>
+    <p>The one-dimensional <b>Kolmogorov–Smirnov</b> distance never had this issue: it depends only on the <em>order</em> of values along each axis, not their scale, so it is unit-invariant for free. What was missing was a clean, efficient, principled way to carry that property into several dimensions. <b>dKS is that extension</b> — unit-invariant by construction, a genuine metric, computable in near-linear time, with a two-sample test that carries a real finite-sample guarantee, and provably stable where the popular heuristic is not.</p>
+    <p>You can see it directly in the <a href="#examples">real-data examples</a> below: switching body mass from grams to kilograms leaves dKS <em>exactly</em> unchanged, while a Gaussian-kernel MMD swings by 20–40%.</p>
   </section>
 
   <section id="idea" class="section">
