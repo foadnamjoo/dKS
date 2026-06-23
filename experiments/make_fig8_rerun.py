@@ -33,7 +33,7 @@ SKETCH_CSV = "scan_w100.csv"       # "scan_z10.csv" (W=10) | "scan_all_z20.csv" 
 # two legends, like before: line STYLE = method, COLOR = contamination alpha
 STYLE_HANDLES = [
     Line2D([0], [0], color="0.25", ls="--", marker="s", mfc="white", ms=6, lw=2.0,
-           label="Baseline"),
+           label="dKS-Baseline"),
     Line2D([0], [0], color="0.25", ls="-", marker="o", ms=6, lw=2.3,
            label="dKS-Sketch"),
 ]
@@ -219,7 +219,7 @@ def _xaxis_n(ax):
 PANELS = []   # (canonical stem, figure, also_save_sd_copy) -- one standalone figure per panel
 
 # ---- (1) power vs n ----  (+/-1 sample-SD bands on rejection rate)
-fig, ax = plt.subplots(figsize=(5.4, 4.6))
+fig, ax = plt.subplots(figsize=(6.6, 4.1))
 for a in PLAN_A:
     c = COL[a]
     if a in sketch:
@@ -241,7 +241,7 @@ fig.tight_layout()
 PANELS.append(("fig8_power_vs_n", fig, True))
 
 # ---- (2) runtime vs n (LINEAR n, runtime in SECONDS on LOG scale) ----
-fig, ax = plt.subplots(figsize=(5.4, 4.6))
+fig, ax = plt.subplots(figsize=(6.6, 4.1))
 for a in reversed(PLAN_A):   # draw red(0.01) first -> green -> blue(0.1) on top, so each
     c = COL[a]               # color shows in its own n-range (runtimes overlap: alpha-independent)
     if a in sketch:
@@ -262,7 +262,7 @@ fig.tight_layout()
 PANELS.append(("fig8_runtime_vs_n", fig, False))
 
 # ---- (3) power vs runtime ----  (+/-1 sample-SD bands on rejection rate; Jeff's key panel)
-fig, ax = plt.subplots(figsize=(5.4, 4.6))
+fig, ax = plt.subplots(figsize=(6.6, 4.1))
 for a in PLAN_A:
     c = COL[a]
     if a in sketch:

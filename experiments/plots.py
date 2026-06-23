@@ -53,6 +53,7 @@ def _read_power(fname="power.csv"):
                 "rejection_rate": float(r["rejection_rate"]),
                 "ci_low": float(r["ci_low"]), "ci_high": float(r["ci_high"]),
                 "avg_runtime": float(r["avg_runtime"]), "delta": float(r["delta"]),
+                "Z": int(r["Z"]),
             })
     return rows
 
@@ -63,17 +64,22 @@ def _alpha_colors(alphas):
             for i, a in enumerate(alphas)}
 
 
-# Curated palette for the CSR panels: vivid, clearly differentiable and
-# colourblind-safe (Okabe-Ito) -- blue -> green -> vermillion as contamination
-# rises.  Kept separate from _alpha_colors so the other finalized panels (still
-# on viridis) are untouched.  Falls back to viridis if there are more alphas
-# than palette entries.
-_CSR_PALETTE = ["#0072B2", "#009E73", "#D55E00", "#CC79A7", "#E69F00"]
+# Curated palette for the CSR panels: vivid, lively, maximally distinguishable
+# (Material-accent hues) -- bright blue / green / orange / magenta as
+# contamination rises.  Kept separate from _alpha_colors so the other finalized
+# panels (still on viridis) are untouched.  Falls back to viridis if there are
+# more alphas than palette entries.
+_CSR_PALETTE = ["#2979FF", "#00C853", "#FF6D00", "#F50057", "#AA00FF"]
+# Colours for the CSR contamination curves specifically.  With alpha in
+# {0.1,0.2,0.3} this gives blue / green / vivid-pink (#F50057 -- the hue we
+# liked from the dropped alpha=0.4).  Kept separate from _CSR_PALETTE so the
+# method colours used elsewhere (Baseline orange, dKS-Sketch blue) are intact.
+_CSR_ALPHA_COLORS = ["#2979FF", "#00C853", "#F50057", "#FF6D00", "#AA00FF"]
 
 
 def _alpha_colors_csr(alphas):
-    if len(alphas) <= len(_CSR_PALETTE):
-        return {a: _CSR_PALETTE[i] for i, a in enumerate(alphas)}
+    if len(alphas) <= len(_CSR_ALPHA_COLORS):
+        return {a: _CSR_ALPHA_COLORS[i] for i, a in enumerate(alphas)}
     return _alpha_colors(alphas)
 
 
@@ -81,7 +87,7 @@ def _ser(rows, m, a):
     pts = sorted([r for r in rows if r["method"] == m and r["alpha"] == a],
                  key=lambda r: r["n"])
     return {k: np.array([p[k] for p in pts]) for k in
-            ("n", "avg_runtime", "rejection_rate", "ci_low", "ci_high")}
+            ("n", "avg_runtime", "rejection_rate", "ci_low", "ci_high", "Z")}
 
 
 def _legend(ax, alphas, colors, methods, rows):
@@ -275,8 +281,8 @@ def fig_calibration():
 
 
 def fig_calibration_cdf():
-    """Empirical CDF P(D <= eps) under H0 for Baseline (exact) and Our Algo
-    (approx), with the theoretical bound 1 - exp(-n eps^2 / (4 ln 2n)).
+    """Empirical CDF P(D <= eps) under H0 for Baseline and dKS-Sketch,
+    with the theoretical bound 1 - exp(-n eps^2 / (4 ln 2n)).
     Companion to fig_calibration (which shows the tail P(D >= eps)).
     """
     rows = {"exact": [], "approx": []}
@@ -299,12 +305,12 @@ def fig_calibration_cdf():
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
     xe, ye = cdf(ve)
     xa, ya = cdf(va)
-    ax.step(xe, ye, where="post", color="#1f77b4", lw=2.2,
-            label=r"empirical Baseline (exact)  $\hat P(\leq\varepsilon)$")
-    ax.step(xa, ya, where="post", color="#1f77b4", lw=1.8, ls="--",
-            label=r"empirical Our Algo (approx)")
+    ax.step(xe, ye, where="post", color=_CSR_PALETTE[2], lw=2.0, ls=(0, (6, 4)),
+            label="empirical Baseline")
+    ax.step(xa, ya, where="post", color=_CSR_PALETTE[0], lw=2.2,
+            label="empirical dKS-Sketch")
     ax.plot(eps, np.clip(1.0 - M.bound_union_direct(eps, n), 0.0, 1.0),
-            color="#ff7f0e", lw=2, ls="-.",
+            color="0.45", lw=2, ls=":",
             label=r"bound  $1-(32/\varepsilon^2)e^{-n\varepsilon^2/2}$")
     ax.set_xlabel(r"threshold  $\varepsilon$  (dKS value)")
     ax.set_ylabel(r"CDF  $P(D \leq \varepsilon)$")
@@ -321,7 +327,7 @@ def fig_calibration_cdf():
 # --- larger fonts + explicit dash/solid method key; each method is plotted only
 # --- over the n it has (Baseline clipped at 1000, Our Algo to 2000).
 _CSR_CSV = "power_smalln.csv"
-_CSR_LBL = {M.METHOD_EXACT: "Baseline (exact)", M.METHOD_SSS: "Our Algo"}
+_CSR_LBL = {M.METHOD_EXACT: "dKS-Baseline", M.METHOD_SSS: "dKS-Sketch"}
 # CSR-only marker/line styles (the shared global STYLE -- used by the other,
 # already-finalized panels -- is left untouched).  Square for Baseline reads
 # more clearly than the old triangle; explicit dash tuple for a crisp dashed
@@ -332,7 +338,8 @@ _CSR_STYLE = {
 }
 
 
-def _legend_csr(ax, alphas, colors, methods, rows, fs=10):
+def _legend_csr(ax, alphas, colors, methods, rows, fs=10, mloc="upper left",
+                aloc="lower right"):
     have = {r["method"] for r in rows}
     methods = [m for m in methods if m in have]
     # Legend KEY readability: one marker per key (numpoints=1), but a long handle
@@ -351,15 +358,15 @@ def _legend_csr(ax, alphas, colors, methods, rows, fs=10):
     ah = [Line2D([0], [0], color=colors[a], lw=3, label=rf"$\alpha={a:g}$")
           for a in alphas]
     leg1 = ax.legend(handles=mh, fontsize=fs,
-                     title_fontsize=fs, loc="upper left", framealpha=0.92,
+                     title_fontsize=fs, loc=mloc, framealpha=0.92,
                      handlelength=4.8, handletextpad=0.7, numpoints=1)
     ax.add_artist(leg1)
     ax.legend(handles=ah, title="contamination", fontsize=fs, title_fontsize=fs,
-              loc="lower right", framealpha=0.92)
+              loc=aloc, framealpha=0.92)
 
 
 def fig_power_vs_n_csr():
-    rows = _read_power(_CSR_CSV)
+    rows = [r for r in _read_power(_CSR_CSV) if r["alpha"] < 0.35]  # Jeff: alpha in {.1,.2,.3}
     alphas = sorted({r["alpha"] for r in rows})
     colors = _alpha_colors_csr(alphas)
     delta = rows[0]["delta"]
@@ -369,22 +376,28 @@ def fig_power_vs_n_csr():
             s = _ser(rows, m, a)
             if not len(s["n"]):
                 continue
-            ax.fill_between(s["n"], s["ci_low"], s["ci_high"],
-                            color=colors[a], alpha=0.13, lw=0)
-            ax.plot(s["n"], s["rejection_rate"], color=colors[a], **_CSR_STYLE[m])
+            # band = mean rejection rate +/- 1 standard error (std dev of the
+            # estimate, sqrt(p(1-p)/Z)); -> 0 at saturation, wider with fewer
+            # trials.  Shows ALL data; not a Wilson CI.
+            p = s["rejection_rate"]
+            se = np.sqrt(np.clip(p * (1.0 - p), 0.0, None) / s["Z"])
+            ax.fill_between(s["n"], p - se, p + se,
+                            color=colors[a], alpha=0.16, lw=0)
+            ax.plot(s["n"], p, color=colors[a], **_CSR_STYLE[m])
     ax.axhline(delta, color="0.55", ls=(0, (1, 1)), lw=1)
     ax.set_xlabel("sample size  $n$", fontsize=13)
-    ax.set_ylabel("rejection rate  (95% Wilson CI)", fontsize=13)
+    ax.set_ylabel(r"rejection rate  (mean $\pm$ 1 s.e.)", fontsize=13)
     ax.set_ylim(-0.03, 1.03)
-    ax.set_title(r"CSR power vs $n$ (Baseline clipped at $n=1000$)", fontsize=13)
+    ax.set_title(r"Power vs $n$", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
-    _legend_csr(ax, alphas, colors, PERM, rows)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))
+    _legend_csr(ax, alphas, colors, PERM, rows, mloc="center right")
     _save(fig, "fig_power_vs_n_csr")
 
 
 def fig_runtime_vs_n_csr():
-    rows = _read_power(_CSR_CSV)
+    rows = [r for r in _read_power(_CSR_CSV) if r["alpha"] < 0.35]  # Jeff: alpha in {.1,.2,.3}
     alphas = sorted({r["alpha"] for r in rows})
     colors = _alpha_colors_csr(alphas)
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
@@ -393,20 +406,21 @@ def fig_runtime_vs_n_csr():
             s = _ser(rows, m, a)
             if not len(s["n"]):
                 continue
-            ax.plot(s["n"], s["avg_runtime"] * 1e3, color=colors[a], **_CSR_STYLE[m])
+            ax.plot(s["n"], s["avg_runtime"], color=colors[a], **_CSR_STYLE[m])
     ax.set_xlabel("sample size  $n$", fontsize=13)
-    ax.set_ylabel("avg runtime per test  (ms)", fontsize=13)
+    ax.set_ylabel("avg runtime per test  (s)", fontsize=13)
     ax.set_yscale("log")
-    ax.set_title(r"CSR runtime vs $n$: Baseline $O(n^2)$ vs Our Algo $O(n\log n)$",
-                 fontsize=13)
+    ax.set_title(r"Runtime vs $n$", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3, which="both")
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: format(y, ",g")))
     _legend_csr(ax, alphas, colors, PERM, rows)
     _save(fig, "fig_runtime_vs_n_csr")
 
 
 def fig_power_vs_runtime_csr():
-    rows = _read_power(_CSR_CSV)
+    rows = [r for r in _read_power(_CSR_CSV) if r["alpha"] < 0.35]  # Jeff: alpha in {.1,.2,.3}
     alphas = sorted({r["alpha"] for r in rows})
     colors = _alpha_colors_csr(alphas)
     delta = rows[0]["delta"]
@@ -416,20 +430,22 @@ def fig_power_vs_runtime_csr():
             s = _ser(rows, m, a)
             if not len(s["n"]):
                 continue
-            x = s["avg_runtime"] * 1e3
-            ax.fill_between(x, s["ci_low"], s["ci_high"],
-                            color=colors[a], alpha=0.13, lw=0)
-            ax.plot(x, s["rejection_rate"], color=colors[a], **_CSR_STYLE[m])
+            x = s["avg_runtime"]
+            p = s["rejection_rate"]
+            se = np.sqrt(np.clip(p * (1.0 - p), 0.0, None) / s["Z"])
+            ax.fill_between(x, p - se, p + se,
+                            color=colors[a], alpha=0.16, lw=0)
+            ax.plot(x, p, color=colors[a], **_CSR_STYLE[m])
     ax.axhline(delta, color="0.55", ls=(0, (1, 1)), lw=1)
-    ax.set_xlabel("avg runtime per test  (ms, log scale)", fontsize=13)
-    ax.set_ylabel("rejection probability  (95% Wilson CI)", fontsize=13)
+    ax.set_xlabel("avg runtime per test  (s, log scale)", fontsize=13)
+    ax.set_ylabel(r"rejection probability  (mean $\pm$ 1 s.e.)", fontsize=13)
     ax.set_xscale("log")
     ax.set_ylim(-0.03, 1.03)
-    ax.set_title("CSR power vs runtime (left = cheaper, up = more powerful)",
-                 fontsize=13)
+    ax.set_title("CSR power vs runtime", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3, which="both")
-    _legend_csr(ax, alphas, colors, PERM, rows)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: format(v, ",g")))
+    _legend_csr(ax, alphas, colors, PERM, rows, mloc="center right")
     _save(fig, "fig_power_vs_runtime_csr")
 
 
@@ -446,11 +462,11 @@ def _save(fig, name):
 # Standalone from the power panels: these read results/runtime.csv (written by
 # run_runtime.py -- a single dKS eval per rep under the null P=Q, so each
 # algorithm's returned value IS its observed error).  method in {exact, approx}.
-# Baseline = dashed+square (vermillion); Our Algo = solid+circle (blue).
+# Baseline = dashed+square (orange); dKS-Sketch = solid+circle (blue).
 _RT_CSV = "runtime.csv"
 _RT_ORDER = ["exact", "approx"]
-_RT_LBL = {"exact": "Baseline (exact)", "approx": "Our Algo"}
-_RT_COLOR = {"exact": "#D55E00", "approx": "#0072B2"}   # Okabe-Ito vermillion / blue
+_RT_LBL = {"exact": "dKS-Baseline", "approx": "dKS-Sketch"}
+_RT_COLOR = {"exact": _CSR_PALETTE[2], "approx": _CSR_PALETTE[0]}  # orange / blue
 _RT_STYLE = {
     "exact":  dict(linestyle=(0, (6, 4)), marker="s", lw=1.9, markersize=6),
     "approx": dict(linestyle="-",         marker="o", lw=1.9, markersize=6),
@@ -472,7 +488,7 @@ def _rt_ser(rows, m):
     return {k: np.array([p[k] for p in pts]) for k in ("n", "runtime", "obs_err")}
 
 
-def _rt_legend(ax, loc):
+def _rt_legend(ax, loc, bbox=None):
     # Custom handles so the Baseline key shows several clear dashes: a long handle
     # + tight dash pattern, single centered marker (same trick as the CSR legends).
     _LEG_LS = {"exact": (0, (4, 3)), "approx": "-"}
@@ -481,12 +497,12 @@ def _rt_legend(ax, loc):
                       markersize=_RT_STYLE[m]["markersize"], linestyle=_LEG_LS[m])
                for m in _RT_ORDER]
     ax.legend(handles=handles, fontsize=10, loc=loc, framealpha=0.92,
-              handlelength=4.8, handletextpad=0.7, numpoints=1)
+              handlelength=4.8, handletextpad=0.7, numpoints=1, bbox_to_anchor=bbox)
 
 
 def fig_rt_runtime_vs_n():
     rows = _read_runtime()
-    fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    fig, ax = plt.subplots(figsize=(6.8, 4.25))
     for m in _RT_ORDER:
         s = _rt_ser(rows, m)
         if not len(s["n"]):
@@ -497,22 +513,23 @@ def fig_rt_runtime_vs_n():
     ax.set_ylabel("runtime per dKS eval  (hours)", fontsize=13)
     ax.set_ylim(bottom=0)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))  # 1,000,000
-    ax.set_title(r"Runtime vs $n$: Baseline $O(n^2)$ vs Our Algo $O(n\log n)$",
-                 fontsize=13)
+    ax.set_title(r"Runtime vs $n$", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
-    # Our Algo's runtime (<=0.2 s) is ~0 on an hours axis -- point it out explicitly
-    ax.annotate("Our Algo: $\\leq 0.2$ s\n(flat against the axis)",
-                xy=(820000, 0.0), xytext=(600000, 0.95),
-                fontsize=10, color=_RT_COLOR["approx"], ha="center", va="bottom",
-                arrowprops=dict(arrowstyle="->", lw=1.8, color=_RT_COLOR["approx"]))
+    # dKS-Sketch's runtime (<=0.2 s) is ~0 on an hours axis -- point it out explicitly
+    ax.annotate(r"dKS-Sketch: $\leq 0.2$ s",
+                xy=(915000, 0.0), xytext=(815000, 1.18),
+                fontsize=14, fontweight="bold", color=_RT_COLOR["approx"],
+                ha="center", va="bottom",
+                arrowprops=dict(arrowstyle="-|>", lw=2.6, color=_RT_COLOR["approx"],
+                                mutation_scale=22, connectionstyle="arc3,rad=-0.25"))
     _rt_legend(ax, "upper left")
     _save(fig, "fig_rt_runtime_vs_n")
 
 
 def fig_rt_error_vs_n():
     rows = _read_runtime()
-    fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    fig, ax = plt.subplots(figsize=(6.8, 4.25))
     for m in _RT_ORDER:
         s = _rt_ser(rows, m)
         if not len(s["n"]):
@@ -523,7 +540,7 @@ def fig_rt_error_vs_n():
     ax.set_ylabel(r"observed error  (dKS value under $P=Q$)", fontsize=13)
     ax.set_ylim(bottom=0)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))  # 1,000,000
-    ax.set_title(r"Observed error vs $n$  (both $\to 0$)", fontsize=13)
+    ax.set_title(r"Observed error vs $n$", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
     _rt_legend(ax, "upper right")
@@ -532,7 +549,7 @@ def fig_rt_error_vs_n():
 
 def fig_rt_runtime_vs_error():
     rows = _read_runtime()
-    fig, ax = plt.subplots(figsize=(7.0, 4.8))
+    fig, ax = plt.subplots(figsize=(7.0, 4.4))
     for m in _RT_ORDER:
         s = _rt_ser(rows, m)
         if not len(s["n"]):
@@ -541,11 +558,23 @@ def fig_rt_runtime_vs_error():
                 label=_RT_LBL[m], **_RT_STYLE[m])
     ax.set_xlabel("runtime per dKS eval  (hours)", fontsize=13)
     ax.set_ylabel("observed error", fontsize=13)
-    ax.set_title("Runtime vs observed error  (left = cheaper at same error)",
-                 fontsize=13)
+    ax.set_title("Runtime vs observed error", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
-    _rt_legend(ax, "upper right")
+    _rt_legend(ax, "lower right", bbox=(0.985, 0.17))
+    # zoom inset: low-runtime / low-error corner -- dKS-Sketch reaches small error
+    # at ~0 runtime while the Baseline needs far more
+    axins = ax.inset_axes([0.44, 0.40, 0.53, 0.56])
+    for m in _RT_ORDER:
+        s = _rt_ser(rows, m)
+        axins.plot(s["runtime"] / 3600.0, s["obs_err"], color=_RT_COLOR[m], **_RT_STYLE[m])
+    axins.set_xlim(-0.0004, 0.005)
+    axins.set_ylim(0, 0.022)
+    axins.set_xticks([0, 0.001, 0.002, 0.003, 0.004, 0.005])
+    axins.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.3f}"))
+    axins.tick_params(labelsize=8)
+    axins.grid(alpha=0.3)
+    ax.indicate_inset_zoom(axins, edgecolor="0.4", lw=1.2)
     _save(fig, "fig_rt_runtime_vs_error")
 
 

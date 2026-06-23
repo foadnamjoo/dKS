@@ -75,7 +75,7 @@ def panel_power_vs_runtime(ax):
     two_legends(ax)
 
 
-fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+fig, axes = plt.subplots(1, 3, figsize=(19.8, 4.1))
 panel_power_vs_n(axes[0])
 panel_runtime_vs_n(axes[1])
 panel_power_vs_runtime(axes[2])
