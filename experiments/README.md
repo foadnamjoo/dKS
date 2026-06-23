@@ -12,7 +12,48 @@ run_calibration.py   null tail, exact AND approx    -> results/calibration.csv
 plots.py             reads results/*.csv            -> figures/*.pdf (+ .png)
 ```
 
-`results/` and `figures/` are git-ignored (regenerated on every run).
+`figures/` is git-ignored; `results/` is too, **except** the small input CSVs the
+paper figures read — those are committed so Figures 6 and 7 reproduce instantly.
+
+## Reproducing the paper figures (Figures 6 & 7)
+
+`import dks` is the C++ library (`include/dks/dks.hpp` via the pybind11 binding);
+install with `pip install .` from the repo root. The two data-driven paper
+figures re-plot from committed CSVs — **no long runs needed**:
+
+| Figure | Plotter | Reads (`results/`) |
+|---|---|---|
+| **Fig 6** runtime / observed error vs `n` | `plots.py`: `fig_rt_runtime_vs_n`, `fig_rt_error_vs_n`, `fig_rt_runtime_vs_error` | `runtime.csv` |
+| **Fig 7** power & CSR power vs runtime | `make_fig8_rerun.py` (+ `make_fig8_combined.py`) | Baseline: `baseline_par_raw.csv`, `baseline_par.csv`, `wk_baseline.csv`, `clean_rt_100k.csv`, `scan_all_z20_raw.csv` · Sketch: `scan_w100.csv`, `scan_all_z20.csv` |
+
+```sh
+.venv/bin/python -c "import sys; sys.path.insert(0,'experiments'); import plots; \
+  plots.fig_rt_runtime_vs_n(); plots.fig_rt_error_vs_n(); plots.fig_rt_runtime_vs_error()"
+.venv/bin/python experiments/make_fig8_rerun.py
+```
+
+**Regenerating the data from scratch.** The dKS-Sketch data is cheap; the exact
+**Baseline is O(n²)** and is the expensive part of Fig 7 (a single `n = 100k`
+test ≈ 3.9 h; the α = 0.01 curve ≈ 8 days/replication, not run — see the paper).
+Runners flush each trial as it finishes, so a stop never loses work.
+
+| Runner | Writes | Notes |
+|---|---|---|
+| `run_runtime.py` | `runtime.csv` (Fig 6) | exact + approx under `P = Q`; Baseline ≈ 4.2 h at `n ≈ 1.05M` |
+| `run_par_baseline.py --workers 7` | `baseline_par{,_raw}.csv` | parallel exact-Baseline power/runtime (~10 h) |
+| `run_par_sketch.py 100` | `scan_w100{,_raw}.csv` | parallel dKS-Sketch power scan, `W = 100` |
+| `run_scan.py --alpha … --B 500 --Z 100` | `scan_sss.csv` | Sketch-only α-scan: where each α saturates |
+| `run_100k_topup.py` | appends `baseline_par_raw.csv` | tops up α = 0.03 @ 100k Baseline to `Z = 10` (~4 h) |
+| `run_one_cell.py` | appends `baseline_par_raw.csv` | adds the α = 0.1 @ 20k Baseline cell |
+
+(`scan_all_z20.csv`, `wk_baseline.csv`, `clean_rt_100k.csv` are from an earlier
+sequential scan the parallel runners supersede; kept because Fig 7's Sketch
+runtime curve and a few Baseline cells are read from them.)
+
+---
+
+The sections below document the older power / calibration harness
+(`run_power.py`, `run_calibration.py`) and its `exact-sample`/`SSS` naming.
 
 ## Setup
 

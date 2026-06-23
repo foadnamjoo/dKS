@@ -1,0 +1,2 @@
+method,n,alpha,B,delta,Z,rejection_rate,ci_low,ci_high,avg_runtime
+exact_sample,100000,0.03,100,0.05,1,1.0,0.2065432914738929,1.0,14073.713907708065
