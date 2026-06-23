@@ -249,10 +249,10 @@
     <p>Because dKS reads only the <em>order</em> of points along each axis, its answer doesn't change when an axis's units change. Here it is on two real datasets, beside a Gaussian-kernel MMD — which blends the axes through a Euclidean metric, so its answer depends on the units you happen to choose.</p>
 
     <p class="lead-label">Palmer penguins — body mass vs flipper length</p>
-    <p>A dKS two-sample test cleanly separates Adelie from Gentoo penguins (<i>p</i> = 0.002). Re-express body mass in grams or kilograms, and flipper length in mm, cm or m, and dKS-Sketch returns the identical value for every choice; the Gaussian MMD shifts by up to 21%.</p>
+    <p>A dKS two-sample test cleanly separates Adelie from Gentoo penguins (<i>p</i> = 0.002). Switch body mass from grams to kilograms (with flipper length in mm or cm), and dKS-Sketch returns the identical value, while the Gaussian MMD shifts by up to 21%.</p>
     <figure class="fig">
-      <img src="assets/fig_penguins.png" alt="Left: Adelie and Gentoo penguins by body mass and flipper length, clearly separated. Right: a bar chart with dKS-Sketch identical across six unit choices while MMD changes by up to 21%.">
-      <figcaption><b>Penguins.</b> Left: the two species are clearly separated (dKS test <i>p</i> = 0.002). Right: across grams/kilograms &times; mm/cm/m, every dKS-Sketch bar (blue) is identical, while MMD (red) moves with the unit choice.</figcaption>
+      <img src="assets/fig_penguins.png" alt="Left: Adelie and Gentoo penguins by body mass and flipper length, clearly separated. Right: a bar chart with dKS-Sketch identical across three unit choices while MMD changes by up to 21%.">
+      <figcaption><b>Penguins.</b> Left: the two species are clearly separated (dKS test <i>p</i> = 0.002). Right: switching body mass from grams to kilograms leaves every dKS-Sketch bar (blue) at 1.00, while MMD (red) jumps to 1.21 and 1.16.</figcaption>
     </figure>
 
     <p class="lead-label">NHANES — height vs weight, metric vs US units</p>

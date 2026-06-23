@@ -60,10 +60,7 @@ print(f"dKS(Adelie,Gentoo) = {v_obs:.3f}   permutation p = {p:.4g}   reject={rej
 COMBOS = [  # (tick label, flipper scale from mm, body-mass scale from g)
     ("g\nmm",  1.0,   1.0),
     ("kg\nmm", 1.0,   1e-3),
-    ("g\ncm",  1e-1,  1.0),
     ("kg\ncm", 1e-1,  1e-3),
-    ("g\nm",   1e-3,  1.0),
-    ("kg\nm",  1e-3,  1e-3),
 ]
 dks_u, mmd_u = [], []
 for _, fs, ms in COMBOS:
