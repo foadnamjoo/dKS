@@ -509,11 +509,11 @@ def fig_rt_runtime_vs_n():
             continue
         ax.plot(s["n"], s["runtime"] / 3600.0, color=_RT_COLOR[m],
                 label=_RT_LBL[m], **_RT_STYLE[m])
-    ax.set_xlabel("sample size  $n$", fontsize=13)
-    ax.set_ylabel("runtime per dKS eval  (hours)", fontsize=13)
+    ax.set_xlabel("sample size  $n$", fontsize=17)
+    ax.set_ylabel("runtime  (hours)", fontsize=17)
     ax.set_ylim(bottom=0)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))  # 1,000,000
-    ax.set_title(r"Runtime vs $n$", fontsize=13)
+    ax.set_title(r"Runtime vs $n$", fontsize=18)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
     # dKS-Sketch's runtime (<=0.2 s) is ~0 on an hours axis -- point it out explicitly
@@ -536,11 +536,11 @@ def fig_rt_error_vs_n():
             continue
         ax.plot(s["n"], s["obs_err"], color=_RT_COLOR[m],
                 label=_RT_LBL[m], **_RT_STYLE[m])
-    ax.set_xlabel("sample size  $n$", fontsize=13)
-    ax.set_ylabel(r"observed error  (dKS value under $P=Q$)", fontsize=13)
+    ax.set_xlabel("sample size  $n$", fontsize=17)
+    ax.set_ylabel("observed error", fontsize=17)
     ax.set_ylim(bottom=0)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v):,}"))  # 1,000,000
-    ax.set_title(r"Observed error vs $n$", fontsize=13)
+    ax.set_title(r"Observed error vs $n$", fontsize=18)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
     _rt_legend(ax, "upper right")
@@ -556,9 +556,9 @@ def fig_rt_runtime_vs_error():
             continue
         ax.plot(s["runtime"] / 3600.0, s["obs_err"], color=_RT_COLOR[m],
                 label=_RT_LBL[m], **_RT_STYLE[m])
-    ax.set_xlabel("runtime per dKS eval  (hours)", fontsize=13)
-    ax.set_ylabel("observed error", fontsize=13)
-    ax.set_title("Runtime vs observed error", fontsize=13)
+    ax.set_xlabel("runtime  (hours)", fontsize=12)
+    ax.set_ylabel("observed error", fontsize=12)
+    ax.set_title("Runtime vs observed error", fontsize=12)
     ax.tick_params(labelsize=11)
     ax.grid(alpha=0.3)
     _rt_legend(ax, "lower right", bbox=(0.985, 0.17))
