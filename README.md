@@ -16,15 +16,22 @@ distances (MMD, Wasserstein), it is invariant to the choice of units on each
 axis, so it behaves sensibly when coordinates have different units (e.g. height
 vs. weight, temperature vs. pressure).
 
-## Why two algorithms
+## Two algorithms (matching the paper)
 
-| Function | Cost | Use |
-|---|---|---|
-| `dks::exact(P, Q)`        | `O(n^2)`     | exact value; the maximizing corner is found over all thresholds in `P ∪ Q` |
-| `dks::approx(P, Q, eps)`  | `O(n log n)` | within `eps` of exact; with `eps <= 0` uses a `2*sqrt(n)` grid, the resolution at which exact computation stops being statistically meaningful (sampling error `~ 1/sqrt(n)`) |
+The library computes the same distance two ways; the names follow the paper's
+Algorithm 1 and Algorithm 2:
 
-Counts are normalized by each set's own size, so `|P| != |Q|` is handled
-correctly.
+| Function | Paper name | Cost | What it does |
+|---|---|---|---|
+| `dks::exact(P, Q)`       | **dKS-Baseline** (Alg. 1) | `O(n^2)`     | computes `dKS(P, Q)` exactly *for the given point sets*, sweeping every distinct dominating rectangle (thresholds in `P ∪ Q`) |
+| `dks::approx(P, Q, eps)` | **dKS-Sketch** (Alg. 2)   | `O(n log n)` | within `eps` of dKS-Baseline, via a grid; `eps <= 0` uses a `2*sqrt(n)` grid — the resolution past which finer computation stops being statistically meaningful (sampling error `~ 1/sqrt(n)`) |
+
+`dks::exact` is **exact for the point sets `P, Q`** (no grid approximation) — it
+is *not* a population-exact distance: like any sample-based estimate it still
+carries `~ 1/sqrt(n)` error relative to the underlying distributions. dKS-Sketch
+matches dKS-Baseline to within that same order, so at realistic sample sizes the
+two agree. Counts are normalized by each set's own size, so `|P| != |Q|` is
+handled correctly.
 
 ## Quickstart
 
@@ -36,9 +43,9 @@ The core is **header-only** — copy `include/dks/dks.hpp` into your project and
 std::vector<dks::Point> P = {{0.1, 0.2}, {0.5, 0.7}};
 std::vector<dks::Point> Q = {{0.2, 0.2}, {0.6, 0.8}};
 
-double d  = dks::approx(P, Q);        // fast, default resolution
-double de = dks::exact(P, Q);         // exact
-double da = dks::approx(P, Q, 0.05);  // within 0.05 of exact
+double d  = dks::approx(P, Q);        // dKS-Sketch: fast, default grid
+double de = dks::exact(P, Q);         // dKS-Baseline: brute force, exact for P,Q
+double da = dks::approx(P, Q, 0.05);  // dKS-Sketch within 0.05 of dKS-Baseline
 ```
 
 ### Build the CLI and tests
@@ -60,16 +67,16 @@ ctest --test-dir build
 ### Command-line tool
 
 ```sh
-./dks P.txt Q.txt --exact
+./dks P.txt Q.txt            # dKS-Sketch (fast, default)
+./dks P.txt Q.txt --exact    # dKS-Baseline (brute force)
 ```
 
 Each file holds one point per line, `x y` or `x,y` (blank lines and `#`
-comments ignored):
+comments ignored). A run prints one value (pass `--approx --exact` for both):
 
 ```
 |P| = 4, |Q| = 4
 dKS (approx) = 0.250000
-dKS (exact)  = 0.250000
 ```
 
 ## Python
@@ -89,9 +96,9 @@ import dks
 P = np.array([[0.1, 0.2], [0.5, 0.7]])
 Q = np.array([[0.2, 0.2], [0.6, 0.8]])
 
-dks.approx(P, Q)        # fast O(n log n), default 2*sqrt(n) grid
-dks.exact(P, Q)         # exact O(n^2)
-dks.approx(P, Q, 0.05)  # within 0.05 of exact
+dks.approx(P, Q)        # dKS-Sketch: fast O(n log n), default 2*sqrt(n) grid
+dks.exact(P, Q)         # dKS-Baseline: brute force, O(n^2)
+dks.approx(P, Q, 0.05)  # dKS-Sketch within 0.05 of dKS-Baseline
 ```
 
 Inputs are (N, 2) float arrays; the two sets may differ in size. Requires NumPy and a C++ compiler.
@@ -99,7 +106,7 @@ Inputs are (N, 2) float arrays; the two sets may differ in size. Requires NumPy 
 ## Layout
 
 ```
-include/dks/dks.hpp   header-only core (exact + approx)
+include/dks/dks.hpp   header-only core (dKS-Baseline + dKS-Sketch)
 cli/dks_cli.cpp       command-line tool
 examples/example.cpp  minimal library usage
 tests/test_dks.cpp    correctness tests (vs. brute-force reference)
@@ -109,10 +116,10 @@ Makefile              plain-make build
 
 ## Correctness
 
-`tests/test_dks.cpp` checks `exact()` against an independent `O(n^3)`
-brute-force reference on random instances (including unequal sizes and tied /
-duplicate points), verifies that `approx()` stays within `eps` of `exact()`,
-and covers identity and fully-separated edge cases.
+`tests/test_dks.cpp` checks `dks::exact` (dKS-Baseline) against an independent
+`O(n^3)` brute-force reference on random instances (including unequal sizes and
+tied / duplicate points), verifies that `dks::approx` (dKS-Sketch) stays within
+`eps` of dKS-Baseline, and covers identity and fully-separated edge cases.
 
 ## Roadmap
 
