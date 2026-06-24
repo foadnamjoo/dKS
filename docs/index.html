@@ -219,24 +219,24 @@
     <h2>What the paper establishes</h2>
     <div class="cards">
       <div class="card">
-        <h3>An integral probability metric</h3>
-        <p>An integral probability metric, and a true metric (strong identity property).</p>
+        <h3>A true metric</h3>
+        <p>An integral probability metric with the strong identity property — a genuine metric on distributions, not just a pseudometric.</p>
       </div>
       <div class="card">
-        <h3>Dimension-light sample complexity</h3>
-        <p>Sample complexity O((1/ε²)(d + log(1/δ))), independent of distribution complexity.</p>
+        <h3>Light sample complexity</h3>
+        <p>Only O((1/ε²)(d + log(1/δ))) samples to estimate — linear in the dimension, whatever the data's complexity.</p>
       </div>
       <div class="card">
-        <h3>Near-linear-time computation</h3>
-        <p>Near-linear-time computation for d = 1,2,3,4 (e.g. O(n log n) in 2D); and evidence d &gt; 4 can't be near-linear without breaking the Max-Weight-k-Clique conjecture.</p>
+        <h3>Near-linear time</h3>
+        <p>ε-approximable in O(n log n) for d = 2, and near-linear for d = 3, 4; going faster for d &gt; 4 would break the Max-Weight-k-Clique conjecture.</p>
       </div>
       <div class="card">
-        <h3>A finite-sample two-sample test</h3>
-        <p>A δ-precision two-sample test with finite-sample validity — a guaranteed false-positive bound, not asymptotic or Monte-Carlo.</p>
+        <h3>A finite-sample test</h3>
+        <p>A two-sample test with a guaranteed finite-sample bound on false positives — not asymptotic or Monte-Carlo.</p>
       </div>
       <div class="card">
         <h3>Provably stable</h3>
-        <p>Stable: the popular "quad-KS" variant can change drastically from one data point and has no sample-complexity bound; dKS does.</p>
+        <p>One data point can swing the popular quad-KS variant, so it admits no sample-complexity bound; dKS does.</p>
       </div>
     </div>
   </section>
